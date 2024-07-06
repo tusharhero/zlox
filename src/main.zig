@@ -65,7 +65,7 @@ fn runPrompt(allocator: std.mem.Allocator) !void {
     }
 }
 
-pub fn main() !void {
+pub fn main() !u8 {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer std.debug.assert(gpa.deinit() == .ok);
     const allocator = gpa.allocator();
@@ -76,6 +76,10 @@ pub fn main() !void {
     switch (args.len) {
         1 => try runPrompt(allocator),
         2 => try runFile(allocator, args[1]),
-        else => try stdout.print("Usage: {s} [script]\n", .{args[0]}),
+        else => {
+            try stdout.print("Usage: {s} [script]\n", .{args[0]});
+            return 2;
+        },
     }
+    return 0;
 }
