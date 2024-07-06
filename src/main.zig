@@ -40,8 +40,18 @@ fn run(source_code: []u8) !void {
 }
 
 fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
-    const source_code = try std.fs.cwd()
-        .readFileAlloc(allocator, path, max);
+    const cwd = std.fs.cwd();
+    const source_code = cwd.readFileAlloc(
+        allocator,
+        path,
+        max,
+    ) catch |err| switch (err) {
+        error.FileNotFound => {
+            try stderr.print("Error: {s} not found\n", .{path});
+            return;
+        },
+        else => return err,
+    };
     defer allocator.free(source_code);
     try run(source_code);
 }
