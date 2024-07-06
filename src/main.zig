@@ -19,7 +19,20 @@ const std = @import("std");
 
 const stdout = std.io.getStdOut().writer();
 const stdin = std.io.getStdIn().reader();
+const stderr = std.io.getStdErr().writer();
+
 const max = std.math.maxInt(u64);
+
+fn _error(line: u64, message: []u8) void {
+    report(line, "", message);
+}
+
+fn report(line: u64, where: []u8, message: []u8) void {
+    stderr.print(
+        "[line {d} ] Error {s}: {s}\n",
+        .{ line, where, message },
+    );
+}
 
 fn run(source_code: []u8) !void {
     // Just print source code for now.
