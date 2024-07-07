@@ -64,9 +64,15 @@ pub const TokenType = enum {
     EOF,
 };
 
+pub const Literal = union(enum) {
+    number: u64,
+    string: []u8,
+};
+
 pub const Token = struct {
     _type: TokenType,
     lexeme: []u8,
+    literal: ?Literal,
     line: u64,
 
     // Caller owns the string.
@@ -74,7 +80,7 @@ pub const Token = struct {
         return try std.fmt.allocPrint(
             allocator,
             "{any} {s} {s}",
-            .{ self._type, self.lexeme, self.line },
+            .{ self._type, self.lexeme, self.literal },
         );
     }
 };
