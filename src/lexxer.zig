@@ -133,6 +133,7 @@ const Lexxer = struct {
         while (isAlphanumeric(self.peek()) or self.peek() == '_') self.advance();
         const text = self.source_code[self.start..self.current];
         const _type = self.keywords.get(text).?;
+        if (type == null) type = TokenType.IDENTIFIER;
         self.addToken(_type);
     }
 
