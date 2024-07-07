@@ -24,6 +24,7 @@ const TokenType = tokens.TokenType;
 const Lexxer = struct {
     source_code: []u8,
     tokens: std.ArrayList(Token),
+    keywords: std.AutoArrayHashMap([]u8, TokenType),
 
     start: u64,
     current: u64,
@@ -33,6 +34,27 @@ const Lexxer = struct {
         self.source_code = source_code;
         self.tokens = std.ArrayList(Token).init(allocator);
         errdefer self.tokens.deinit();
+
+        self.keywords = std.AutoArrayHashMap([]u8, TokenType).init(allocator);
+        defer self.keywords.deinit();
+        const put = self.keywords.put;
+        const Type = TokenType;
+        put("and", Type.AND);
+        put("class", Type.CLASS);
+        put("else", Type.ELSE);
+        put("false", Type.FALSE);
+        put("for", Type.FOR);
+        put("fun", Type.FUN);
+        put("if", Type.IF);
+        put("nil", Type.NIL);
+        put("or", Type.OR);
+        put("print", Type.PRINT);
+        put("return", Type.RETURN);
+        put("super", Type.SUPER);
+        put("this", Type.THIS);
+        put("true", Type.TRUE);
+        put("var", Type.VAR);
+        put("while", Type.WHILE);
 
         self.start = 0;
         self.current = 0;
@@ -106,6 +128,13 @@ const Lexxer = struct {
         );
     }
 
+    fn identifier(self: Lexxer) void {
+        const isAlphanumeric = std.ascii.isAlphanumeric;
+        while (isAlphanumeric(self.peek()) or self.peek() == '_') self.advance();
+        const text = self.source_code[self.start..self.current];
+        const _type = self.keywords.get(text).?;
+        self.addToken(_type);
+    }
 
     fn scanToken(self: Lexxer) void {
         const c = self.advance();
@@ -142,6 +171,8 @@ const Lexxer = struct {
             '"' => self.string(),
 
             '0'...'9' => self.number(),
+
+            'a'...'z', 'A'...'Z', '_' => self.identifier(),
 
             else => main._error(self.line, "Unexpected character."),
         }
