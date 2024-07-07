@@ -66,13 +66,9 @@ const Lexxer = struct {
         return self.source_code[self.current - 1];
     }
 
-    fn addToken_literal(self: Lexxer, _type: TokenType, literal: ?tokens.Literal) void {
+    fn addToken(self: Lexxer, _type: TokenType, literal: ?tokens.Literal) void {
         const lexeme: []u8 = self.source_code[self.start..self.current];
         self.tokens.append(Token{ _type, lexeme, literal, self.line });
-    }
-
-    fn addToken(self: Lexxer, _type: TokenType) void {
-        self.addToken_literal(_type, null);
     }
 
     fn match(self: Lexxer, expected: u8) bool {
@@ -119,7 +115,7 @@ const Lexxer = struct {
             while (isDigit(self.peek())) self.advance();
         }
 
-        addToken(
+        self.addToken(
             TokenType.NUMBER,
             std.fmt.parseFloat(
                 f64,
