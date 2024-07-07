@@ -16,29 +16,27 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 const std = @import("std");
-const tokens = @import("tokens.zig");
+const _tokens = @import("tokens.zig");
 const main = @import("main.zig");
-const Token = tokens.Token;
-const TokenType = tokens.TokenType;
+const Token = _tokens.Token;
+const Type = _tokens.TokenType;
 
-const Lexxer = struct {
+pub const Lexxer = struct {
     source_code: []u8,
     tokens: std.ArrayList(Token),
-    keywords: std.AutoArrayHashMap([]u8, TokenType),
+    keywords: std.AutoArrayHashMap([]u8, Type),
 
     start: u64,
     current: u64,
     line: u64,
 
-    fn init(self: Lexxer, allocator: std.mem.Allocator, source_code: []u8) Lexxer {
-        self.source_code = source_code;
-        self.tokens = std.ArrayList(Token).init(allocator);
-        errdefer self.tokens.deinit();
+    pub fn init(allocator: std.mem.Allocator, source_code: []u8) Lexxer {
+        const tokens = std.ArrayList(Token).init(allocator);
+        errdefer tokens.deinit();
 
-        self.keywords = std.AutoArrayHashMap([]u8, TokenType).init(allocator);
-        defer self.keywords.deinit();
-        const put = self.keywords.put;
-        const Type = TokenType;
+        const keywords = std.AutoArrayHashMap([]u8, Type).init(allocator);
+        defer keywords.deinit();
+        const put = keywords.put;
         put("and", Type.AND);
         put("class", Type.CLASS);
         put("else", Type.ELSE);
@@ -56,9 +54,14 @@ const Lexxer = struct {
         put("var", Type.VAR);
         put("while", Type.WHILE);
 
-        self.start = 0;
-        self.current = 0;
-        self.line = 1;
+        return Lexxer{
+            .source_code = source_code,
+            .tokens = tokens,
+            .keywords = keywords,
+            .start = 0,
+            .current = 0,
+            .line = 1,
+        };
     }
 
     fn advance(self: Lexxer) u8 {
@@ -66,7 +69,7 @@ const Lexxer = struct {
         return self.source_code[self.current - 1];
     }
 
-    fn addToken(self: Lexxer, _type: TokenType, literal: ?tokens.Literal) void {
+    fn addToken(self: Lexxer, _type: Type, literal: ?Token.Literal) void {
         const lexeme: []u8 = self.source_code[self.start..self.current];
         self.tokens.append(Token{ _type, lexeme, literal, self.line });
     }
@@ -102,7 +105,7 @@ const Lexxer = struct {
         self.advance();
 
         const value: []u8 = self.source_code[self.start + 1 .. self.current - 1];
-        self.addToken(TokenType.STRING, value);
+        self.addToken(Type.STRING, value);
     }
 
     fn number(self: Lexxer) void {
@@ -116,7 +119,7 @@ const Lexxer = struct {
         }
 
         self.addToken(
-            TokenType.NUMBER,
+            Type.NUMBER,
             std.fmt.parseFloat(
                 f64,
                 self.source_code[self.start..self.current],
@@ -129,13 +132,12 @@ const Lexxer = struct {
         while (isAlphanumeric(self.peek()) or self.peek() == '_') self.advance();
         const text = self.source_code[self.start..self.current];
         const _type = self.keywords.get(text).?;
-        if (type == null) type = TokenType.IDENTIFIER;
+        if (type == null) type = Type.IDENTIFIER;
         self.addToken(_type);
     }
 
     fn scanToken(self: Lexxer) void {
         const c = self.advance();
-        const Type = TokenType;
         switch (c) {
             '(' => self.addToken(Type.LEFT_PAREN),
             ')' => self.addToken(Type.RIGHT_PAREN),
@@ -179,13 +181,13 @@ const Lexxer = struct {
         return self.current >= self.source_code.len;
     }
 
-    fn scanTokens(self: Lexxer) std.ArrayList(Token) {
+    pub fn scanTokens(self: Lexxer) std.ArrayList(Token) {
         while (!self.isAtEnd()) {
             // We are at the beginning of the next lexeme.
             self.start = self.current;
             self.scanToken();
         }
-        tokens.add(Token{ TokenType.EOF, "", null, self.line });
+        self.tokens.add(Token{ Type.EOF, "", null, self.line });
         return self.tokens;
     }
 };
