@@ -32,10 +32,8 @@ pub const Lexxer = struct {
 
     pub fn init(allocator: std.mem.Allocator, source_code: []u8) !Lexxer {
         const tokens = std.ArrayList(Token).init(allocator);
-        errdefer tokens.deinit();
 
         var keywords = std.StringArrayHashMap(Type).init(allocator);
-        defer keywords.deinit();
         try keywords.put("and", Type.AND);
         try keywords.put("class", Type.CLASS);
         try keywords.put("else", Type.ELSE);
@@ -61,6 +59,11 @@ pub const Lexxer = struct {
             .current = 0,
             .line = 1,
         };
+    }
+
+    pub fn deinit(self: *Lexxer) void {
+        self.tokens.deinit();
+        self.keywords.deinit();
     }
 
     fn advance(self: *Lexxer) u8 {

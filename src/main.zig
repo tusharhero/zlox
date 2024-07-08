@@ -37,6 +37,7 @@ fn report(line: u64, where: []u8, message: []const u8) !void {
 
 fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     var lexxer = try Lexxer.init(allocator, source_code);
+    defer lexxer.deinit();
     const tokens = try lexxer.scanTokens();
     // Just print source code and tokens for now.
     try stdout.print("{s}\n", .{source_code});
