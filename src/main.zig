@@ -16,6 +16,7 @@
 // along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 const std = @import("std");
+const Lexxer = @import("lexxer.zig").Lexxer;
 
 const stdout = std.io.getStdOut().writer();
 const stdin = std.io.getStdIn().reader();
@@ -23,20 +24,23 @@ const stderr = std.io.getStdErr().writer();
 
 const max = std.math.maxInt(u64);
 
-fn _error(line: u64, message: []u8) void {
-    report(line, "", message);
+pub fn _error(line: u64, message: []const u8) !void {
+    try report(line, "", message);
 }
 
-fn report(line: u64, where: []u8, message: []u8) void {
-    stderr.print(
+fn report(line: u64, where: []u8, message: []const u8) !void {
+    try stderr.print(
         "[line {d} ] Error {s}: {s}\n",
         .{ line, where, message },
     );
 }
 
-fn run(source_code: []u8) !void {
-    // Just print source code for now.
+fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
+    var lexxer = try Lexxer.init(allocator, source_code);
+    const tokens = try lexxer.scanTokens();
+    // Just print source code and tokens for now.
     try stdout.print("{s}\n", .{source_code});
+    try stdout.print("{any}\n", .{tokens.items});
 }
 
 fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
@@ -53,15 +57,19 @@ fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
         else => return err,
     };
     defer allocator.free(source_code);
-    try run(source_code);
+    try run(allocator, source_code);
 }
 
 fn runPrompt(allocator: std.mem.Allocator) !void {
     while (b: {
         try stdout.print("> ", .{});
-        break :b try stdin.readUntilDelimiterOrEofAlloc(allocator, '\n', max);
+        break :b try stdin.readUntilDelimiterOrEofAlloc(
+            allocator,
+            '\n',
+            max,
+        );
     }) |line| : (allocator.free(line)) {
-        try run(line);
+        try run(allocator, line);
     }
 }
 

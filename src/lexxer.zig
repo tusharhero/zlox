@@ -24,35 +24,34 @@ const Type = _tokens.TokenType;
 pub const Lexxer = struct {
     source_code: []u8,
     tokens: std.ArrayList(Token),
-    keywords: std.AutoArrayHashMap([]u8, Type),
+    keywords: std.StringArrayHashMap(Type),
 
     start: u64,
     current: u64,
     line: u64,
 
-    pub fn init(allocator: std.mem.Allocator, source_code: []u8) Lexxer {
+    pub fn init(allocator: std.mem.Allocator, source_code: []u8) !Lexxer {
         const tokens = std.ArrayList(Token).init(allocator);
         errdefer tokens.deinit();
 
-        const keywords = std.AutoArrayHashMap([]u8, Type).init(allocator);
+        var keywords = std.StringArrayHashMap(Type).init(allocator);
         defer keywords.deinit();
-        const put = keywords.put;
-        put("and", Type.AND);
-        put("class", Type.CLASS);
-        put("else", Type.ELSE);
-        put("false", Type.FALSE);
-        put("for", Type.FOR);
-        put("fun", Type.FUN);
-        put("if", Type.IF);
-        put("nil", Type.NIL);
-        put("or", Type.OR);
-        put("print", Type.PRINT);
-        put("return", Type.RETURN);
-        put("super", Type.SUPER);
-        put("this", Type.THIS);
-        put("true", Type.TRUE);
-        put("var", Type.VAR);
-        put("while", Type.WHILE);
+        try keywords.put("and", Type.AND);
+        try keywords.put("class", Type.CLASS);
+        try keywords.put("else", Type.ELSE);
+        try keywords.put("false", Type.FALSE);
+        try keywords.put("for", Type.FOR);
+        try keywords.put("fun", Type.FUN);
+        try keywords.put("if", Type.IF);
+        try keywords.put("nil", Type.NIL);
+        try keywords.put("or", Type.OR);
+        try keywords.put("print", Type.PRINT);
+        try keywords.put("return", Type.RETURN);
+        try keywords.put("super", Type.SUPER);
+        try keywords.put("this", Type.THIS);
+        try keywords.put("true", Type.TRUE);
+        try keywords.put("var", Type.VAR);
+        try keywords.put("while", Type.WHILE);
 
         return Lexxer{
             .source_code = source_code,
@@ -64,102 +63,106 @@ pub const Lexxer = struct {
         };
     }
 
-    fn advance(self: Lexxer) u8 {
+    fn advance(self: *Lexxer) u8 {
         self.current += 1;
         return self.source_code[self.current - 1];
     }
 
-    fn addToken(self: Lexxer, _type: Type, literal: ?Token.Literal) void {
+    fn addToken(self: *Lexxer, _type: Type, literal: ?_tokens.Literal) !void {
         const lexeme: []u8 = self.source_code[self.start..self.current];
-        self.tokens.append(Token{ _type, lexeme, literal, self.line });
+        try self.tokens.append(Token{
+            ._type = _type,
+            .lexeme = lexeme,
+            .literal = literal,
+            .line = self.line,
+        });
     }
 
-    fn match(self: Lexxer, expected: u8) bool {
+    fn match(self: *Lexxer, expected: u8) bool {
         if (self.isAtEnd()) return false;
         if (self.source_code[self.current] != expected) return false;
         self.current += 1;
         return true;
     }
 
-    fn peek(self: Lexxer) u8 {
+    fn peek(self: *Lexxer) u8 {
         if (self.isAtEnd()) return 0;
         return self.source_code[self.current];
     }
 
-    fn peekNext(self: Lexxer) u8 {
-        if (self.current + 1 >= self.source_code.length()) return 0;
+    fn peekNext(self: *Lexxer) u8 {
+        if (self.current + 1 >= self.source_code.len) return 0;
         return self.source_code[self.current + 1];
     }
 
-    fn string(self: Lexxer) void {
+    fn string(self: *Lexxer) !void {
         while (self.peek() != '"' and !self.isAtEnd()) {
             if (self.peek() == '\n') self.line += 1;
-            self.advance();
+            _ = self.advance();
         }
 
         if (self.isAtEnd()) {
-            main._error(self.line, "Unterminated String.");
+            try main._error(self.line, "Unterminated String.");
         }
 
         // The closing ".
-        self.advance();
+        _ = self.advance();
 
         const value: []u8 = self.source_code[self.start + 1 .. self.current - 1];
-        self.addToken(Type.STRING, value);
+        try self.addToken(Type.STRING, _tokens.Literal{ .string = value });
     }
 
-    fn number(self: Lexxer) void {
+    fn number(self: *Lexxer) !void {
         const isDigit = std.ascii.isDigit;
-        while (isDigit(self.peek())) self.advance();
+        while (isDigit(self.peek())) _ = self.advance();
 
         // Look for fractional part.
         if (self.peek() == '.' and isDigit(self.peekNext())) {
-            self.advance();
-            while (isDigit(self.peek())) self.advance();
+            _ = self.advance();
+            while (isDigit(self.peek())) _ = self.advance();
         }
 
-        self.addToken(
+        try self.addToken(
             Type.NUMBER,
-            std.fmt.parseFloat(
+            _tokens.Literal{ .number = try std.fmt.parseFloat(
                 f64,
                 self.source_code[self.start..self.current],
-            ),
+            ) },
         );
     }
 
-    fn identifier(self: Lexxer) void {
+    fn identifier(self: *Lexxer) !void {
         const isAlphanumeric = std.ascii.isAlphanumeric;
-        while (isAlphanumeric(self.peek()) or self.peek() == '_') self.advance();
+        while (isAlphanumeric(self.peek()) or self.peek() == '_') _ = self.advance();
         const text = self.source_code[self.start..self.current];
-        const _type = self.keywords.get(text).?;
-        if (type == null) type = Type.IDENTIFIER;
-        self.addToken(_type);
+        const _type = self.keywords.get(text) orelse Type.IDENTIFIER;
+        try self.addToken(_type, _tokens.Literal{ .string = text });
     }
 
-    fn scanToken(self: Lexxer) void {
+    fn scanToken(self: *Lexxer) !void {
         const c = self.advance();
-        switch (c) {
-            '(' => self.addToken(Type.LEFT_PAREN),
-            ')' => self.addToken(Type.RIGHT_PAREN),
-            '{' => self.addToken(Type.LEFT_BRACE),
-            '}' => self.addToken(Type.RIGHT_BRACE),
-            ',' => self.addToken(Type.COMMA),
-            '.' => self.addToken(Type.DOT),
-            '-' => self.addToken(Type.MINUS),
-            '+' => self.addToken(Type.PLUS),
-            ';' => self.addToken(Type.SEMICOLON),
-            '*' => self.addToken(Type.STAR),
+        try switch (c) {
+            '(' => self.addToken(Type.LEFT_PAREN, null),
+            ')' => self.addToken(Type.RIGHT_PAREN, null),
+            '{' => self.addToken(Type.LEFT_BRACE, null),
+            '}' => self.addToken(Type.RIGHT_BRACE, null),
+            ',' => self.addToken(Type.COMMA, null),
+            '.' => self.addToken(Type.DOT, null),
+            '-' => self.addToken(Type.MINUS, null),
+            '+' => self.addToken(Type.PLUS, null),
+            ';' => self.addToken(Type.SEMICOLON, null),
+            '*' => self.addToken(Type.STAR, null),
 
-            '!' => self.addToken(if (self.match('=')) Type.EQUAL else Type.BANG),
-            '=' => self.addToken(if (self.match('=')) Type.EQUAL_EQUAL else Type.EQUAL),
-            '<' => self.addToken(if (self.match('=')) Type.LESS_EQUAL else Type.LESS),
-            '>' => self.addToken(if (self.match('=')) Type.GREATER_EQUAL else Type.GREATER),
+            '!' => self.addToken(if (self.match('=')) Type.EQUAL else Type.BANG, null),
+            '=' => self.addToken(if (self.match('=')) Type.EQUAL_EQUAL else Type.EQUAL, null),
+            '<' => self.addToken(if (self.match('=')) Type.LESS_EQUAL else Type.LESS, null),
+            '>' => self.addToken(if (self.match('=')) Type.GREATER_EQUAL else Type.GREATER, null),
 
             '/' => {
                 if (self.match('/')) { // Comment
-                    while ((self.peek() != '\n' and !self.isAtEnd())) self.advance();
+                    while ((self.peek() != '\n' and !self.isAtEnd())) _ = self.advance();
                 } else {
-                    addToken(Type.SLASH);
+                    try self.addToken(Type.SLASH, null);
                 }
             },
 
@@ -174,20 +177,25 @@ pub const Lexxer = struct {
             'a'...'z', 'A'...'Z', '_' => self.identifier(),
 
             else => main._error(self.line, "Unexpected character."),
-        }
+        };
     }
 
-    fn isAtEnd(self: Lexxer) bool {
+    fn isAtEnd(self: *Lexxer) bool {
         return self.current >= self.source_code.len;
     }
 
-    pub fn scanTokens(self: Lexxer) std.ArrayList(Token) {
+    pub fn scanTokens(self: *Lexxer) !std.ArrayList(Token) {
         while (!self.isAtEnd()) {
             // We are at the beginning of the next lexeme.
             self.start = self.current;
-            self.scanToken();
+            try self.scanToken();
         }
-        self.tokens.add(Token{ Type.EOF, "", null, self.line });
+        try self.tokens.append(Token{
+            ._type = Type.EOF,
+            .lexeme = "",
+            .literal = null,
+            .line = self.line,
+        });
         return self.tokens;
     }
 };

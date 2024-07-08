@@ -65,7 +65,7 @@ pub const TokenType = enum {
 };
 
 pub const Literal = union(enum) {
-    number: u64,
+    number: f64,
     string: []u8,
 };
 
