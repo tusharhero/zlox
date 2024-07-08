@@ -2,4 +2,4 @@
 #+author: tusharhero
 #+email: tusharhero@sdf.org
 
-A language written by following [[https://crafting-interpreters.org/][crafting-interperters.org]].
+A [[https://ziglang.org/][Zig]] implementation of the Lox language from the [[https://craftinginterpreters.com/][crafting interperters book]].
