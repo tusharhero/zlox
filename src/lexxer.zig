@@ -152,7 +152,13 @@ pub const Lexxer = struct {
                 }
             },
             '*' => { // C-style block comments
-                while (!(self.match('*') and self.match('/'))) {
+                _ = self.advance();
+                var start_comment: u64 = 1;
+                var end_comment: u64 = 0;
+                while (start_comment != end_comment) {
+                    if (self.match('/') and self.match('*')) start_comment += 1;
+                    if (self.match('*') and self.match('/')) end_comment += 1;
+
                     if (self.isAtEnd()) try main._error(self.line, "Unterminated String.");
                     if (self.advance() == '\n') self.line += 1;
                 }
