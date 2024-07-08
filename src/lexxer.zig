@@ -30,6 +30,7 @@ pub const Lexxer = struct {
     current: u64,
     line: u64,
 
+    /// Caller must call deinit after allocation.
     pub fn init(allocator: std.mem.Allocator, source_code: []u8) !Lexxer {
         const tokens = std.ArrayList(Token).init(allocator);
 
@@ -137,6 +138,7 @@ pub const Lexxer = struct {
     fn identifier(self: *Lexxer) !void {
         const isAlphanumeric = std.ascii.isAlphanumeric;
         while (isAlphanumeric(self.peek()) or self.peek() == '_') _ = self.advance();
+
         const text = self.source_code[self.start..self.current];
         const _type = self.keywords.get(text) orelse Type.IDENTIFIER;
         try self.addToken(_type, _tokens.Literal{ .string = text });
@@ -193,6 +195,7 @@ pub const Lexxer = struct {
             self.start = self.current;
             try self.scanToken();
         }
+        // Add EOF token at the end.
         try self.tokens.append(Token{
             ._type = Type.EOF,
             .lexeme = "",

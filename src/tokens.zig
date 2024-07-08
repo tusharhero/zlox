@@ -75,7 +75,7 @@ pub const Token = struct {
     literal: ?Literal,
     line: u64,
 
-    // Caller owns the string.
+    /// Caller owns the string.
     fn toString(self: Token, allocator: std.mem.Allocator) ![]u8 {
         return try std.fmt.allocPrint(
             allocator,
