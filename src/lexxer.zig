@@ -158,7 +158,7 @@ pub const Lexxer = struct {
             ';' => self.addToken(Type.SEMICOLON, null),
             '*' => self.addToken(Type.STAR, null),
 
-            '!' => self.addToken(if (self.match('=')) Type.EQUAL else Type.BANG, null),
+            '!' => self.addToken(if (self.match('=')) Type.BANG_EQUAL else Type.BANG, null),
             '=' => self.addToken(if (self.match('=')) Type.EQUAL_EQUAL else Type.EQUAL, null),
             '<' => self.addToken(if (self.match('=')) Type.LESS_EQUAL else Type.LESS, null),
             '>' => self.addToken(if (self.match('=')) Type.GREATER_EQUAL else Type.GREATER, null),
