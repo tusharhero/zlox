@@ -144,6 +144,23 @@ pub const Lexxer = struct {
         try self.addToken(_type, _tokens.Literal{ .string = text });
     }
 
+    fn comments(self: *Lexxer) !void {
+        switch (self.peek()) {
+            '/' => { // Single line comments
+                while ((self.peek() != '\n' and !self.isAtEnd())) {
+                    _ = self.advance();
+                }
+            },
+            '*' => { // C-style block comments
+                while (!(self.match('*') and self.match('/'))) {
+                    if (self.isAtEnd()) try main._error(self.line, "Unterminated String.");
+                    if (self.advance() == '\n') self.line += 1;
+                }
+            },
+            else => try self.addToken(Type.SLASH, null),
+        }
+    }
+
     fn scanToken(self: *Lexxer) !void {
         const c = self.advance();
         try switch (c) {
@@ -163,13 +180,7 @@ pub const Lexxer = struct {
             '<' => self.addToken(if (self.match('=')) Type.LESS_EQUAL else Type.LESS, null),
             '>' => self.addToken(if (self.match('=')) Type.GREATER_EQUAL else Type.GREATER, null),
 
-            '/' => {
-                if (self.match('/')) { // Comment
-                    while ((self.peek() != '\n' and !self.isAtEnd())) _ = self.advance();
-                } else {
-                    try self.addToken(Type.SLASH, null);
-                }
-            },
+            '/' => self.comments(),
 
             ' ', '\r', '\t' => {},
 
