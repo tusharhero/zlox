@@ -71,7 +71,7 @@ pub const Literal = union(enum) {
 
 pub const Token = struct {
     _type: TokenType,
-    lexeme: []u8,
+    lexeme: []const u8,
     literal: ?Literal,
     line: u64,
 
