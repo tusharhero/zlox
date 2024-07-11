@@ -47,13 +47,20 @@ const Unary = struct {
 const Printer = struct {
     allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
+    notation: Notation,
 
-    pub fn init() !Printer {
+    pub const Notation = union(enum) {
+        reverse_polish,
+        parenthesized_prefix,
+    };
+
+    pub fn init(notation: Notation) !Printer {
         var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
         const allocator = arena.allocator();
         return Printer{
             .allocator = allocator,
             .arena = arena,
+            .notation = notation,
         };
     }
 
@@ -62,7 +69,7 @@ const Printer = struct {
     }
 
     fn printBinary(self: *Printer, expression: Binary) ![]const u8 {
-        return try self.parenthesize(.{
+        return try self.format(.{
             expression.operator.lexeme,
             expression.left,
             expression.right,
@@ -70,7 +77,7 @@ const Printer = struct {
     }
 
     fn printGrouping(self: *Printer, expression: Grouping) ![]const u8 {
-        return try self.parenthesize(.{ "group", expression.expression });
+        return try self.format(.{ "group", expression.expression });
     }
 
     fn printLiteral(self: *Printer, expression: Literal) ![]const u8 {
@@ -87,13 +94,20 @@ const Printer = struct {
     }
 
     fn printUnary(self: *Printer, expression: Unary) ![]const u8 {
-        return try self.parenthesize(.{
+        return try self.format(.{
             expression.operator.lexeme,
             expression.right,
         });
     }
 
-    fn parenthesize(self: *Printer, args: anytype) ![]const u8 {
+    fn format(self: *Printer, args: anytype) ![]const u8 {
+        return switch (self.notation) {
+            .reverse_polish => self.format_reverse_polish(args),
+            .parenthesized_prefix => self.format_parethensized_prefix(args),
+        };
+    }
+
+    fn format_parethensized_prefix(self: *Printer, args: anytype) ![]const u8 {
         var formatted_string_list = std.ArrayList(u8).init(self.allocator);
         const writer = formatted_string_list.writer();
         inline for (args, 0..) |arg, index| {
@@ -104,6 +118,19 @@ const Printer = struct {
             }
         }
         try writer.print(")", .{});
+        const formatted_string = formatted_string_list.items;
+        return formatted_string;
+    }
+
+    fn format_reverse_polish(self: *Printer, args: anytype) ![]const u8 {
+        var formatted_string_list = std.ArrayList(u8).init(self.allocator);
+        const writer = formatted_string_list.writer();
+        inline for (args, 0..) |arg, index| {
+            if (index != 0) {
+                try writer.print("{!s} ", .{self.printExpr(arg)});
+            }
+        }
+        try writer.print("{s}", .{args[0]});
         const formatted_string = formatted_string_list.items;
         return formatted_string;
     }
