@@ -56,6 +56,7 @@ const Printer = struct {
             .arena = arena,
         };
     }
+
     pub fn deinit(self: *Printer) void {
         self.arena.deinit();
     }
@@ -76,10 +77,15 @@ const Printer = struct {
         const literal = expression.value;
         if (literal == null) return "nill";
         return switch (literal.?) {
-            .number => |num| try std.fmt.allocPrint(self.allocator, "{d}", .{num}),
+            .number => |num| try std.fmt.allocPrint(
+                self.allocator,
+                "{d}",
+                .{num},
+            ),
             .string => |str| str,
         };
     }
+
     fn printUnary(self: *Printer, expression: Unary) ![]const u8 {
         return try self.parenthesize(.{
             expression.operator.lexeme,
@@ -88,20 +94,21 @@ const Printer = struct {
     }
 
     fn parenthesize(self: *Printer, args: anytype) ![]const u8 {
-        var formattedlist = std.ArrayList(u8).init(self.allocator);
-        const writer = formattedlist.writer();
+        var formatted_string_list = std.ArrayList(u8).init(self.allocator);
+        const writer = formatted_string_list.writer();
         inline for (args, 0..) |arg, index| {
             if (index == 0) {
                 try writer.print("({s}", .{arg});
             } else {
-                try writer.print(" {!s}", .{self.print(arg)});
+                try writer.print(" {!s}", .{self.printExpr(arg)});
             }
         }
         try writer.print(")", .{});
-        return formattedlist.items;
+        const formatted_string = formatted_string_list.items;
+        return formatted_string;
     }
 
-    fn print(self: *Printer, expression: *const Expr) ![]const u8 {
+    pub fn printExpr(self: *Printer, expression: *const Expr) ![]const u8 {
         return switch (expression.*) {
             .binary => |binary| self.printBinary(binary),
             .grouping => |grouping| self.printGrouping(grouping),
