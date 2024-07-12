@@ -17,6 +17,8 @@
 
 const std = @import("std");
 const Lexxer = @import("lexxer.zig").Lexxer;
+const Parser = @import("parser.zig").Parser;
+const Printer = @import("ast.zig").Printer;
 
 const stdout = std.io.getStdOut().writer();
 const stdin = std.io.getStdIn().reader();
@@ -39,9 +41,14 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     var lexxer = try Lexxer.init(allocator, source_code);
     defer lexxer.deinit();
     const tokens = try lexxer.scanTokens();
-    // Just print source code and tokens for now.
+    var parser = Parser.init(tokens);
+    const parsed_expression = parser.expression();
+    var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
+    defer printer.deinit();
+    // Just print source code, tokens, and parenthesized expression for now.
     try stdout.print("{s}\n", .{source_code});
     try stdout.print("{any}\n", .{tokens.items});
+    try stdout.print("{!s}\n", .{printer.printExpr(&parsed_expression)});
 }
 
 fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
