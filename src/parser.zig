@@ -81,78 +81,77 @@ pub const Parser = struct {
     }
 
     fn equality(self: *Parser) !*ast.Expr {
-        var expr = try self.allocator.create(ast.Expr);
-        var right = try self.allocator.create(ast.Expr);
-        expr = try self.comparison();
+        var expr = try self.comparison();
         while (self.match(.{ Type.BANG_EQUAL, Type.EQUAL_EQUAL })) {
             const operator = self.previous();
-            right = try self.comparison();
-            expr.* = ast.Expr{ .binary = ast.Binary{
+            const compound_expr = try self.allocator.create(ast.Expr);
+            const right = try self.comparison();
+            compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
                 .operator = operator,
                 .right = right,
             } };
+            expr = compound_expr;
         }
         return expr;
     }
 
     fn comparison(self: *Parser) !*ast.Expr {
-        var expr = try self.allocator.create(ast.Expr);
-        var right = try self.allocator.create(ast.Expr);
-        expr = try self.term();
+        var expr = try self.term();
         while (self.match(.{
             Type.LESS,    Type.LESS_EQUAL,
             Type.GREATER, Type.GREATER_EQUAL,
         })) {
             const operator: Token = self.previous();
-            right = try self.term();
-            expr.* = ast.Expr{ .binary = ast.Binary{
+            const compound_expr = try self.allocator.create(ast.Expr);
+            const right = try self.term();
+            compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
                 .operator = operator,
                 .right = right,
             } };
+            expr = compound_expr;
         }
         return expr;
     }
 
     fn term(self: *Parser) !*ast.Expr {
-        var expr = try self.allocator.create(ast.Expr);
-        var right = try self.allocator.create(ast.Expr);
-        expr = try self.factor();
+        var expr = try self.factor();
         while (self.match(.{ Type.PLUS, Type.MINUS })) {
             const operator: Token = self.previous();
-            right = try self.factor();
-            expr.* = ast.Expr{ .binary = ast.Binary{
+            const compound_expr = try self.allocator.create(ast.Expr);
+            const right = try self.factor();
+            compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
                 .operator = operator,
                 .right = right,
             } };
+            expr = compound_expr;
         }
         return expr;
     }
 
     fn factor(self: *Parser) !*ast.Expr {
-        var expr = try self.allocator.create(ast.Expr);
-        var right = try self.allocator.create(ast.Expr);
-        expr = try self.unary();
+        var expr = try self.unary();
         while (self.match(.{ Type.STAR, Type.SLASH })) {
             const operator: Token = self.previous();
-            right = try self.unary();
-            expr.* = ast.Expr{ .binary = ast.Binary{
+            const compound_expr = try self.allocator.create(ast.Expr);
+            const right = try self.unary();
+            compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
                 .operator = operator,
                 .right = right,
             } };
+            expr = compound_expr;
         }
         return expr;
     }
 
     fn unary(self: *Parser) !*ast.Expr {
         const expr = try self.allocator.create(ast.Expr);
-        var right = try self.allocator.create(ast.Expr);
         while (self.match(.{ Type.BANG, Type.MINUS })) {
             const operator: Token = self.previous();
-            right = try self.unary();
+            const right = try self.unary();
             expr.* = ast.Expr{ .unary = ast.Unary{
                 .operator = operator,
                 .right = right,
@@ -164,17 +163,50 @@ pub const Parser = struct {
 
     fn primary(self: *Parser) !*ast.Expr {
         var expr = try self.allocator.create(ast.Expr);
-        if (self.match(.{Type.FALSE})) expr.* = ast.Expr{ .literal = ast.Literal{ .value = _tokens.Literal{ .string = "false" } } };
-        if (self.match(.{Type.TRUE})) expr.* = ast.Expr{ .literal = ast.Literal{ .value = _tokens.Literal{ .string = "true" } } };
-        if (self.match(.{Type.NIL})) expr.* = ast.Expr{ .literal = ast.Literal{ .value = null } };
-        if (self.match(.{ Type.NUMBER, Type.STRING })) expr.* = ast.Expr{ .literal = ast.Literal{
-            .value = self.previous().literal,
-        } };
+        if (self.match(.{Type.FALSE})) {
+            expr.* = ast.Expr{
+                .literal = ast.Literal{
+                    .value = _tokens.Literal{
+                        .string = "false",
+                    },
+                },
+            };
+        }
+        if (self.match(.{Type.TRUE})) {
+            expr.* = ast.Expr{
+                .literal = ast.Literal{
+                    .value = _tokens.Literal{
+                        .string = "true",
+                    },
+                },
+            };
+        }
+        if (self.match(.{Type.NIL})) {
+            expr.* = ast.Expr{
+                .literal = ast.Literal{
+                    .value = null,
+                },
+            };
+        }
+        if (self.match(.{ Type.NUMBER, Type.STRING })) {
+            expr.* = ast.Expr{
+                .literal = ast.Literal{
+                    .value = self.previous().literal,
+                },
+            };
+        }
         if (self.match(.{Type.LEFT_PAREN})) {
             expr = try self.expression();
             _ = self.match(.{Type.RIGHT_PAREN});
-            expr.* = ast.Expr{ .grouping = ast.Grouping{ .expression = expr } };
+            const compound_expr = try self.allocator.create(ast.Expr);
+            compound_expr.* = ast.Expr{
+                .grouping = ast.Grouping{
+                    .expression = expr,
+                },
+            };
+            expr = compound_expr;
         }
+
         return expr;
     }
 };
