@@ -41,14 +41,15 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     var lexxer = try Lexxer.init(allocator, source_code);
     defer lexxer.deinit();
     const tokens = try lexxer.scanTokens();
-    var parser = Parser.init(tokens);
-    const parsed_expression = parser.expression();
+    var parser = try Parser.init(tokens);
+    defer parser.deinit();
+    const parsed_expression = try parser.expression();
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
     // Just print source code, tokens, and parenthesized expression for now.
     try stdout.print("{s}\n", .{source_code});
     try stdout.print("{any}\n", .{tokens.items});
-    try stdout.print("{!s}\n", .{printer.printExpr(&parsed_expression)});
+    try stdout.print("{!s}\n", .{printer.printExpr(parsed_expression)});
 }
 
 fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
