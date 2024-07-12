@@ -23,14 +23,24 @@ const Token = _tokens.Token;
 const Type = _tokens.TokenType;
 
 pub const Parser = struct {
+    allocator: std.mem.Allocator,
+    arena: std.heap.ArenaAllocator,
     tokens: std.ArrayList(Token),
     current: u64,
 
-    pub fn init(tokens: std.ArrayList(Token)) Parser {
+    pub fn init(tokens: std.ArrayList(Token)) !Parser {
+        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+        const allocator = arena.allocator();
         return Parser{
+            .allocator = allocator,
+            .arena = arena,
             .tokens = tokens,
             .current = 0,
         };
+    }
+
+    pub fn deinit(self: *Parser) void {
+        self.arena.deinit();
     }
 
     fn peek(self: *Parser) Token {
@@ -66,93 +76,105 @@ pub const Parser = struct {
         return false;
     }
 
-    pub fn expression(self: *Parser) ast.Expr {
-        return self.equality();
+    pub fn expression(self: *Parser) std.mem.Allocator.Error!*ast.Expr {
+        return try self.equality();
     }
 
-    fn equality(self: *Parser) ast.Expr {
-        var expr: ast.Expr = self.comparison();
+    fn equality(self: *Parser) !*ast.Expr {
+        var expr = try self.allocator.create(ast.Expr);
+        var right = try self.allocator.create(ast.Expr);
+        expr = try self.comparison();
         while (self.match(.{ Type.BANG_EQUAL, Type.EQUAL_EQUAL })) {
-            const operator: Token = self.previous();
-            const right: ast.Expr = self.comparison();
-            expr = ast.Expr{ .binary = ast.Binary{
-                .left = &expr,
+            const operator = self.previous();
+            right = try self.comparison();
+            expr.* = ast.Expr{ .binary = ast.Binary{
+                .left = expr,
                 .operator = operator,
-                .right = &right,
+                .right = right,
             } };
         }
         return expr;
     }
 
-    fn comparison(self: *Parser) ast.Expr {
-        var expr: ast.Expr = self.term();
+    fn comparison(self: *Parser) !*ast.Expr {
+        var expr = try self.allocator.create(ast.Expr);
+        var right = try self.allocator.create(ast.Expr);
+        expr = try self.term();
         while (self.match(.{
             Type.LESS,    Type.LESS_EQUAL,
             Type.GREATER, Type.GREATER_EQUAL,
         })) {
             const operator: Token = self.previous();
-            const right: ast.Expr = self.term();
-            expr = ast.Expr{ .binary = ast.Binary{
-                .left = &expr,
+            right = try self.term();
+            expr.* = ast.Expr{ .binary = ast.Binary{
+                .left = expr,
                 .operator = operator,
-                .right = &right,
+                .right = right,
             } };
         }
         return expr;
     }
 
-    fn term(self: *Parser) ast.Expr {
-        var expr: ast.Expr = self.factor();
+    fn term(self: *Parser) !*ast.Expr {
+        var expr = try self.allocator.create(ast.Expr);
+        var right = try self.allocator.create(ast.Expr);
+        expr = try self.factor();
         while (self.match(.{ Type.PLUS, Type.MINUS })) {
             const operator: Token = self.previous();
-            const right: ast.Expr = self.factor();
-            expr = ast.Expr{ .binary = ast.Binary{
-                .left = &expr,
+            right = try self.factor();
+            expr.* = ast.Expr{ .binary = ast.Binary{
+                .left = expr,
                 .operator = operator,
-                .right = &right,
+                .right = right,
             } };
         }
         return expr;
     }
 
-    fn factor(self: *Parser) ast.Expr {
-        var expr: ast.Expr = self.unary();
+    fn factor(self: *Parser) !*ast.Expr {
+        var expr = try self.allocator.create(ast.Expr);
+        var right = try self.allocator.create(ast.Expr);
+        expr = try self.unary();
         while (self.match(.{ Type.STAR, Type.SLASH })) {
             const operator: Token = self.previous();
-            const right: ast.Expr = self.unary();
-            expr = ast.Expr{ .binary = ast.Binary{
-                .left = &expr,
+            right = try self.unary();
+            expr.* = ast.Expr{ .binary = ast.Binary{
+                .left = expr,
                 .operator = operator,
-                .right = &right,
+                .right = right,
             } };
         }
         return expr;
     }
 
-    fn unary(self: *Parser) ast.Expr {
+    fn unary(self: *Parser) !*ast.Expr {
+        const expr = try self.allocator.create(ast.Expr);
+        var right = try self.allocator.create(ast.Expr);
         while (self.match(.{ Type.BANG, Type.MINUS })) {
             const operator: Token = self.previous();
-            const right: ast.Expr = self.unary();
-            return ast.Expr{ .unary = ast.Unary{
+            right = try self.unary();
+            expr.* = ast.Expr{ .unary = ast.Unary{
                 .operator = operator,
-                .right = &right,
+                .right = right,
             } };
+            return expr;
         }
         return self.primary();
     }
 
-    fn primary(self: *Parser) ast.Expr {
-        if (self.match(.{Type.FALSE})) return ast.Expr{ .literal = ast.Literal{ .value = _tokens.Literal{ .string = "false" } } };
-        if (self.match(.{Type.TRUE})) return ast.Expr{ .literal = ast.Literal{ .value = _tokens.Literal{ .string = "true" } } };
-        if (self.match(.{Type.NIL})) return ast.Expr{ .literal = ast.Literal{ .value = null } };
-        if (self.match(.{ Type.NUMBER, Type.STRING })) return ast.Expr{ .literal = ast.Literal{
+    fn primary(self: *Parser) !*ast.Expr {
+        var expr = try self.allocator.create(ast.Expr);
+        if (self.match(.{Type.FALSE})) expr.* = ast.Expr{ .literal = ast.Literal{ .value = _tokens.Literal{ .string = "false" } } };
+        if (self.match(.{Type.TRUE})) expr.* = ast.Expr{ .literal = ast.Literal{ .value = _tokens.Literal{ .string = "true" } } };
+        if (self.match(.{Type.NIL})) expr.* = ast.Expr{ .literal = ast.Literal{ .value = null } };
+        if (self.match(.{ Type.NUMBER, Type.STRING })) expr.* = ast.Expr{ .literal = ast.Literal{
             .value = self.previous().literal,
         } };
         if (self.match(.{Type.LEFT_PAREN})) {
-            const expr: ast.Expr = self.expression();
+            expr = try self.expression();
             _ = self.match(.{Type.RIGHT_PAREN});
-            return ast.Expr{ .grouping = ast.Grouping{ .expression = &expr } };
+            expr.* = ast.Expr{ .grouping = ast.Grouping{ .expression = expr } };
         }
-        return ast.Expr{ .literal = ast.Literal{ .value = null } };
+        return expr;
     }
 };
