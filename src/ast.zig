@@ -21,30 +21,30 @@ const main = @import("main.zig");
 const Token = _tokens.Token;
 const Type = _tokens.TokenType;
 
-const Expr = union(enum) {
+pub const Expr = union(enum) {
     binary: Binary,
     grouping: Grouping,
     literal: Literal,
     unary: Unary,
 };
 
-const Binary = struct {
+pub const Binary = struct {
     left: *const Expr,
     operator: Token,
     right: *const Expr,
 };
-const Grouping = struct {
+pub const Grouping = struct {
     expression: *const Expr,
 };
-const Literal = struct {
+pub const Literal = struct {
     value: ?_tokens.Literal,
 };
-const Unary = struct {
+pub const Unary = struct {
     operator: Token,
     right: *const Expr,
 };
 
-const Printer = struct {
+pub const Printer = struct {
     allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
     notation: Notation,
