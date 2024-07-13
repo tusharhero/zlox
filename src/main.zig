@@ -46,9 +46,7 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     const parsed_expression = try parser.expression();
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
-    // Just print source code, tokens, and parenthesized expression for now.
-    try stdout.print("{s}\n", .{source_code});
-    try stdout.print("{any}\n", .{tokens.items});
+    // Just print parenthesized expression for now.
     try stdout.print("{!s}\n", .{printer.printExpr(parsed_expression)});
 }
 
