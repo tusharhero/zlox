@@ -23,17 +23,15 @@ const Token = _tokens.Token;
 const Type = _tokens.TokenType;
 
 pub const Parser = struct {
-    allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
     tokens: std.ArrayList(Token),
     current: u64,
 
     pub fn init(tokens: std.ArrayList(Token)) !Parser {
-        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        const allocator = arena.allocator();
         return Parser{
-            .allocator = allocator,
-            .arena = arena,
+            .arena = std.heap.ArenaAllocator.init(
+                std.heap.page_allocator,
+            ),
             .tokens = tokens,
             .current = 0,
         };
@@ -84,7 +82,7 @@ pub const Parser = struct {
         var expr = try self.comparison();
         while (self.match(.{ Type.BANG_EQUAL, Type.EQUAL_EQUAL })) {
             const operator = self.previous();
-            const compound_expr = try self.allocator.create(ast.Expr);
+            const compound_expr = try self.arena.allocator().create(ast.Expr);
             const right = try self.comparison();
             compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
@@ -103,7 +101,7 @@ pub const Parser = struct {
             Type.GREATER, Type.GREATER_EQUAL,
         })) {
             const operator: Token = self.previous();
-            const compound_expr = try self.allocator.create(ast.Expr);
+            const compound_expr = try self.arena.allocator().create(ast.Expr);
             const right = try self.term();
             compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
@@ -119,7 +117,7 @@ pub const Parser = struct {
         var expr = try self.factor();
         while (self.match(.{ Type.PLUS, Type.MINUS })) {
             const operator: Token = self.previous();
-            const compound_expr = try self.allocator.create(ast.Expr);
+            const compound_expr = try self.arena.allocator().create(ast.Expr);
             const right = try self.factor();
             compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
@@ -135,7 +133,7 @@ pub const Parser = struct {
         var expr = try self.unary();
         while (self.match(.{ Type.STAR, Type.SLASH })) {
             const operator: Token = self.previous();
-            const compound_expr = try self.allocator.create(ast.Expr);
+            const compound_expr = try self.arena.allocator().create(ast.Expr);
             const right = try self.unary();
             compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
@@ -148,7 +146,7 @@ pub const Parser = struct {
     }
 
     fn unary(self: *Parser) !*ast.Expr {
-        const expr = try self.allocator.create(ast.Expr);
+        const expr = try self.arena.allocator().create(ast.Expr);
         while (self.match(.{ Type.BANG, Type.MINUS })) {
             const operator: Token = self.previous();
             const right = try self.unary();
@@ -162,7 +160,7 @@ pub const Parser = struct {
     }
 
     fn primary(self: *Parser) !*ast.Expr {
-        var expr = try self.allocator.create(ast.Expr);
+        var expr = try self.arena.allocator().create(ast.Expr);
         if (self.match(.{Type.FALSE})) {
             expr.* = ast.Expr{
                 .literal = ast.Literal{
@@ -202,7 +200,7 @@ pub const Parser = struct {
         if (self.match(.{Type.LEFT_PAREN})) {
             expr = try self.expression();
             _ = self.match(.{Type.RIGHT_PAREN});
-            const compound_expr = try self.allocator.create(ast.Expr);
+            const compound_expr = try self.arena.allocator().create(ast.Expr);
             compound_expr.* = ast.Expr{
                 .grouping = ast.Grouping{
                     .expression = expr,
