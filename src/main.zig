@@ -17,6 +17,8 @@
 
 const std = @import("std");
 const Lexxer = @import("lexxer.zig").Lexxer;
+const Token = @import("tokens.zig").Token;
+const Type = @import("tokens.zig").TokenType;
 const Parser = @import("parser.zig").Parser;
 const Printer = @import("ast.zig").Printer;
 
@@ -26,11 +28,22 @@ const stderr = std.io.getStdErr().writer();
 
 const max = std.math.maxInt(u64);
 
-pub fn _error(line: u64, message: []const u8) !void {
-    try report(line, "", message);
+pub fn _error(info: union(enum) { token: Token, line: u64 }, message: []const u8) !void {
+    switch (info) {
+        .token => |token| {
+            if (token._type == Type.EOF) {
+                try report(token.line, " at end", message);
+            } else {
+                try report(token.line, token.lexeme, message);
+            }
+        },
+        .line => |line| {
+            try report(line, "", message);
+        },
+    }
 }
 
-fn report(line: u64, where: []u8, message: []const u8) !void {
+fn report(line: u64, where: []const u8, message: []const u8) !void {
     try stderr.print(
         "[line {d} ] Error {s}: {s}\n",
         .{ line, where, message },
@@ -43,7 +56,7 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     const tokens = try lexxer.scanTokens();
     var parser = try Parser.init(tokens);
     defer parser.deinit();
-    const parsed_expression = try parser.expression();
+    const parsed_expression = try parser.parse();
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
     // Just print parenthesized expression for now.

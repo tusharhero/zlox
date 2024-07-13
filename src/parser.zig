@@ -27,6 +27,10 @@ pub const Parser = struct {
     tokens: std.ArrayList(Token),
     current: u64,
 
+    const Error = error{
+        ParseError,
+    };
+
     /// Caller must call deinit.
     pub fn init(tokens: std.ArrayList(Token)) !Parser {
         return Parser{
@@ -75,7 +79,42 @@ pub const Parser = struct {
         return false;
     }
 
-    pub fn expression(self: *Parser) std.mem.Allocator.Error!*ast.Expr {
+    fn _error(self: *Parser, token: Token, message: []const u8) !void {
+        _ = self;
+        try main._error(.{ .token = token }, message);
+    }
+
+    fn consume(self: *Parser, _type: Type, message: []const u8) !Token {
+        if (self.check(_type)) return self.advance();
+        try self._error(self.peek(), message);
+        return error.ParseError;
+    }
+
+    const errors = error{
+        ParseError,
+        DiskQuota,
+        FileTooBig,
+        InputOutput,
+        NoSpaceLeft,
+        DeviceBusy,
+        InvalidArgument,
+        AccessDenied,
+        BrokenPipe,
+        SystemResources,
+        OperationAborted,
+        NotOpenForWriting,
+        LockViolation,
+        WouldBlock,
+        ConnectionResetByPeer,
+        OutOfMemory,
+        Unexpected,
+    };
+
+    pub fn parse(self: *Parser) errors!*ast.Expr {
+        return self.expression();
+    }
+
+    fn expression(self: *Parser) errors!*ast.Expr {
         return try self.equality();
     }
 
@@ -200,7 +239,10 @@ pub const Parser = struct {
         }
         if (self.match(.{Type.LEFT_PAREN})) {
             expr = try self.expression();
-            _ = self.match(.{Type.RIGHT_PAREN});
+            _ = try self.consume(
+                Type.RIGHT_PAREN,
+                "Expect ')' after expression.",
+            );
             const compound_expr = try self.arena.allocator().create(ast.Expr);
             compound_expr.* = ast.Expr{
                 .grouping = ast.Grouping{
@@ -211,6 +253,7 @@ pub const Parser = struct {
             return expr;
         }
 
-        @panic("Could not find something to return from primary.");
+        try self._error(self.peek(), "Expect expression.");
+        return error.ParseError;
     }
 };

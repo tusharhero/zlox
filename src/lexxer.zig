@@ -106,7 +106,10 @@ pub const Lexxer = struct {
         }
 
         if (self.isAtEnd()) {
-            try main._error(self.line, "Unterminated String.");
+            try main._error(
+                .{ .line = self.line },
+                "Unterminated String.",
+            );
         }
 
         // The closing ".
@@ -158,7 +161,10 @@ pub const Lexxer = struct {
                     if (self.match('/') and self.match('*')) nested_level += 1;
                     if (self.match('*') and self.match('/')) nested_level -= 1;
 
-                    if (self.isAtEnd()) try main._error(self.line, "Unterminated String.");
+                    if (self.isAtEnd()) try main._error(
+                        .{ .line = self.line },
+                        "Unterminated String.",
+                    );
                     if (self.advance() == '\n') self.line += 1;
                 }
             },
@@ -197,7 +203,7 @@ pub const Lexxer = struct {
 
             'a'...'z', 'A'...'Z', '_' => self.identifier(),
 
-            else => main._error(self.line, "Unexpected character."),
+            else => main._error(.{ .line = self.line }, "Unexpected character."),
         };
     }
 
