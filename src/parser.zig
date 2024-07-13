@@ -171,6 +171,7 @@ pub const Parser = struct {
                     },
                 },
             };
+            return expr;
         }
         if (self.match(.{Type.TRUE})) {
             expr.* = ast.Expr{
@@ -180,6 +181,7 @@ pub const Parser = struct {
                     },
                 },
             };
+            return expr;
         }
         if (self.match(.{Type.NIL})) {
             expr.* = ast.Expr{
@@ -187,6 +189,7 @@ pub const Parser = struct {
                     .value = null,
                 },
             };
+            return expr;
         }
         if (self.match(.{ Type.NUMBER, Type.STRING })) {
             expr.* = ast.Expr{
@@ -194,6 +197,7 @@ pub const Parser = struct {
                     .value = self.previous().literal,
                 },
             };
+            return expr;
         }
         if (self.match(.{Type.LEFT_PAREN})) {
             expr = try self.expression();
@@ -205,8 +209,9 @@ pub const Parser = struct {
                 },
             };
             expr = compound_expr;
+            return expr;
         }
 
-        return expr;
+        @panic("Could not find something to return from primary");
     }
 };
