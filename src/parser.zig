@@ -27,6 +27,7 @@ pub const Parser = struct {
     tokens: std.ArrayList(Token),
     current: u64,
 
+    /// Caller must call deinit.
     pub fn init(tokens: std.ArrayList(Token)) !Parser {
         return Parser{
             .arena = std.heap.ArenaAllocator.init(
@@ -210,6 +211,6 @@ pub const Parser = struct {
             return expr;
         }
 
-        @panic("Could not find something to return from primary");
+        @panic("Could not find something to return from primary.");
     }
 };

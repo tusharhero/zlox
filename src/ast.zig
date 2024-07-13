@@ -53,6 +53,7 @@ pub const Printer = struct {
         parenthesized_prefix,
     };
 
+    /// Caller must call deinit.
     pub fn init(notation: Notation) !Printer {
         return Printer{
             .arena = std.heap.ArenaAllocator.init(
@@ -98,6 +99,7 @@ pub const Printer = struct {
         });
     }
 
+    /// args must be an tuple consisting of either []const u8, or Expr.
     fn format(self: *Printer, args: anytype) ![]const u8 {
         return switch (self.notation) {
             .reverse_polish => self.format_reverse_polish(args),
@@ -105,6 +107,7 @@ pub const Printer = struct {
         };
     }
 
+    /// args must be an tuple consisting of either []const u8, or Expr.
     fn format_parethensized_prefix(self: *Printer, args: anytype) ![]const u8 {
         var formatted_string_list = std.ArrayList(u8).init(self.arena.allocator());
         const writer = formatted_string_list.writer();
@@ -120,6 +123,7 @@ pub const Printer = struct {
         return formatted_string;
     }
 
+    /// args must be an tuple consisting of either []const u8, or Expr.
     fn format_reverse_polish(self: *Printer, args: anytype) ![]const u8 {
         var formatted_string_list = std.ArrayList(u8).init(self.arena.allocator());
         const writer = formatted_string_list.writer();

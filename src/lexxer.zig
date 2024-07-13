@@ -30,7 +30,7 @@ pub const Lexxer = struct {
     current: u64,
     line: u64,
 
-    /// Caller must call deinit after allocation.
+    /// Caller must call deinit.
     pub fn init(allocator: std.mem.Allocator, source_code: []u8) !Lexxer {
         const tokens = std.ArrayList(Token).init(allocator);
 
