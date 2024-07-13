@@ -45,7 +45,6 @@ pub const Unary = struct {
 };
 
 pub const Printer = struct {
-    allocator: std.mem.Allocator,
     arena: std.heap.ArenaAllocator,
     notation: Notation,
 
@@ -55,11 +54,10 @@ pub const Printer = struct {
     };
 
     pub fn init(notation: Notation) !Printer {
-        var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
-        const allocator = arena.allocator();
         return Printer{
-            .allocator = allocator,
-            .arena = arena,
+            .arena = std.heap.ArenaAllocator.init(
+                std.heap.page_allocator,
+            ),
             .notation = notation,
         };
     }
@@ -85,7 +83,7 @@ pub const Printer = struct {
         if (literal == null) return "nill";
         return switch (literal.?) {
             .number => |num| try std.fmt.allocPrint(
-                self.allocator,
+                self.arena.allocator(),
                 "{d}",
                 .{num},
             ),
@@ -108,7 +106,7 @@ pub const Printer = struct {
     }
 
     fn format_parethensized_prefix(self: *Printer, args: anytype) ![]const u8 {
-        var formatted_string_list = std.ArrayList(u8).init(self.allocator);
+        var formatted_string_list = std.ArrayList(u8).init(self.arena.allocator());
         const writer = formatted_string_list.writer();
         inline for (args, 0..) |arg, index| {
             if (index == 0) {
@@ -123,7 +121,7 @@ pub const Printer = struct {
     }
 
     fn format_reverse_polish(self: *Printer, args: anytype) ![]const u8 {
-        var formatted_string_list = std.ArrayList(u8).init(self.allocator);
+        var formatted_string_list = std.ArrayList(u8).init(self.arena.allocator());
         const writer = formatted_string_list.writer();
         inline for (args, 0..) |arg, index| {
             if (index != 0) {
