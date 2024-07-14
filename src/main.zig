@@ -56,7 +56,7 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     const tokens = try lexxer.scanTokens();
     var parser = try Parser.init(tokens);
     defer parser.deinit();
-    const parsed_expression = try parser.parse();
+    const parsed_expression = parser.parse() catch return;
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
     // Just print parenthesized expression for now.
