@@ -21,6 +21,7 @@ const Token = @import("tokens.zig").Token;
 const Type = @import("tokens.zig").TokenType;
 const Parser = @import("parser.zig").Parser;
 const Printer = @import("ast.zig").Printer;
+const Interpreter = @import("interpreter.zig").Interpreter;
 
 const stdout = std.io.getStdOut().writer();
 const stdin = std.io.getStdIn().reader();
@@ -59,8 +60,10 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     const parsed_expression = parser.parse() catch return;
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
+    var interpreter = Interpreter.init();
     // Just print parenthesized expression for now.
     try stdout.print("{!s}\n", .{printer.printExpr(parsed_expression)});
+    try stdout.print("{any}\n", .{interpreter.evaluate(parsed_expression)});
 }
 
 fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
