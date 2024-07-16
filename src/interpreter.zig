@@ -30,31 +30,103 @@ const Object = union(enum) {
 };
 
 pub const Interpreter = struct {
+    const Error = error{
+        InterpreterError,
+    };
+    const errors = error{
+        InterpreterError,
+        DiskQuota,
+        FileTooBig,
+        InputOutput,
+        NoSpaceLeft,
+        DeviceBusy,
+        InvalidArgument,
+        AccessDenied,
+        BrokenPipe,
+        SystemResources,
+        OperationAborted,
+        NotOpenForWriting,
+        LockViolation,
+        WouldBlock,
+        ConnectionResetByPeer,
+        OutOfMemory,
+        Unexpected,
+    };
+
     pub fn init() Interpreter {
         return Interpreter{};
     }
-    fn evalUnary(self: *Interpreter, expression: ast.Unary) Object {
-        const right = self.evaluate(expression.right);
-        return switch (right) {
-            .number => |num| Object{ .number = switch (expression.operator._type) {
-                Type.MINUS => -1 * num,
-                else => num,
-            } },
-            else => right,
+
+    fn isTruthy(self: *Interpreter, object: Object) Object {
+        _ = self;
+        const false_object = Object{
+            .boolean = false,
+        };
+        const true_object = Object{
+            .boolean = true,
+        };
+        const nill_object = Object{
+            .nill = null,
+        };
+        if (object.boolean == false_object.boolean or
+            object.nill == nill_object.nill) return false_object;
+        return true_object;
+    }
+
+    fn evalUnary(self: *Interpreter, expression: ast.Unary) !Object {
+        const right = try self.evaluate(expression.right);
+        const operator = expression.operator._type;
+        switch (operator) {
+            Type.MINUS => {
+                switch (right) {
+                    .number => |num| return Object{ .number = -1 * num },
+                    else => {
+                        try main._error(
+                            .{ .line = 0 },
+                            "Unary operator negation is only available for numbers.",
+                        );
+                        return Error.InterpreterError;
+                    },
+                }
+            },
+            Type.BANG => return self.isTruthy(right),
+            else => {
+                try main._error(
+                    .{ .line = 0 },
+                    "Unkown unary operator.",
+                );
+                return Error.InterpreterError;
+            },
+        }
+    }
+    fn evalBinary(self: *Interpreter, expression: ast.Binary) !Object {
+        const left = try self.evaluate(expression.left);
+        const right = try self.evaluate(expression.right);
+        if (@intFromEnum(left) != @intFromEnum(right)) return Error.InterpreterError;
+        return switch (left) {
+            .number => {
+                const l = left.number;
+                const r = right.number;
+                switch (expression.operator._type) {
+                    Type.PLUS => l + r,
+                    Type.MINUS => l - r,
+                    Type.STAR => l * r,
+                    Type.SLASH => l / r,
+                    else => Error.InterpreterError,
+                }
+            },
+            .string => {
+                const l = left.string;
+                const r = right.string;
+                switch (expression.operator._type) {
+                    Type.PLUS => l + r,
+                    else => Error.InterpreterError,
+                }
+            },
+            else => {},
         };
     }
-    fn evalBinary(self: *Interpreter, expression: ast.Binary) Object {
-        const left = self.evaluate(expression.left);
-        const right = self.evaluate(expression.right);
-        return switch (expression.operator._type) {
-            Type.PLUS => left + right,
-            Type.MINUS => left - right,
-            Type.STAR => left * right,
-            Type.SLASH => left / right,
-            else => self.evaluate(expression.right),
-        };
-    }
-    pub fn evaluate(self: *Interpreter, expression: *const ast.Expr) Object {
+    pub fn evaluate(self: *Interpreter, expression: *const ast.Expr) errors!Object {
         return switch (expression.*) {
             .literal => |literal| {
                 switch (literal.value.?) {
