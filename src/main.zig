@@ -29,6 +29,25 @@ const stderr = std.io.getStdErr().writer();
 
 const max = std.math.maxInt(u64);
 
+pub const Errors = error{
+    DiskQuota,
+    FileTooBig,
+    InputOutput,
+    NoSpaceLeft,
+    DeviceBusy,
+    InvalidArgument,
+    AccessDenied,
+    BrokenPipe,
+    SystemResources,
+    OperationAborted,
+    NotOpenForWriting,
+    LockViolation,
+    WouldBlock,
+    ConnectionResetByPeer,
+    OutOfMemory,
+    Unexpected,
+};
+
 pub fn _error(info: union(enum) { token: Token, line: u64 }, message: []const u8) !void {
     switch (info) {
         .token => |token| {

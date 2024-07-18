@@ -31,6 +31,8 @@ pub const Parser = struct {
         ParseError,
     };
 
+    const Errors = Error || main.Errors;
+
     /// Caller must call deinit.
     pub fn init(tokens: std.ArrayList(Token)) !Parser {
         return Parser{
@@ -90,31 +92,11 @@ pub const Parser = struct {
         return error.ParseError;
     }
 
-    const errors = error{
-        ParseError,
-        DiskQuota,
-        FileTooBig,
-        InputOutput,
-        NoSpaceLeft,
-        DeviceBusy,
-        InvalidArgument,
-        AccessDenied,
-        BrokenPipe,
-        SystemResources,
-        OperationAborted,
-        NotOpenForWriting,
-        LockViolation,
-        WouldBlock,
-        ConnectionResetByPeer,
-        OutOfMemory,
-        Unexpected,
-    };
-
-    pub fn parse(self: *Parser) errors!*ast.Expr {
+    pub fn parse(self: *Parser) Errors!*ast.Expr {
         return self.expression();
     }
 
-    fn expression(self: *Parser) errors!*ast.Expr {
+    fn expression(self: *Parser) Errors!*ast.Expr {
         return try self.comma();
     }
 

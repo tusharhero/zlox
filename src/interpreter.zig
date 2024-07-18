@@ -35,25 +35,8 @@ pub const Interpreter = struct {
     const Error = error{
         InterpreterError,
     };
-    const errors = error{
-        InterpreterError,
-        DiskQuota,
-        FileTooBig,
-        InputOutput,
-        NoSpaceLeft,
-        DeviceBusy,
-        InvalidArgument,
-        AccessDenied,
-        BrokenPipe,
-        SystemResources,
-        OperationAborted,
-        NotOpenForWriting,
-        LockViolation,
-        WouldBlock,
-        ConnectionResetByPeer,
-        OutOfMemory,
-        Unexpected,
-    };
+
+    const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
     pub fn init() Interpreter {
@@ -148,7 +131,7 @@ pub const Interpreter = struct {
         }
         return Error.InterpreterError;
     }
-    pub fn evaluate(self: *Interpreter, expression: *const ast.Expr) errors!Object {
+    pub fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
         return switch (expression.*) {
             .literal => |literal| {
                 if (literal.value == null) return Object{ .nil = null };
