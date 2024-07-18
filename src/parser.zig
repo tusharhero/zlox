@@ -92,8 +92,36 @@ pub const Parser = struct {
         return error.ParseError;
     }
 
-    pub fn parse(self: *Parser) Errors!*ast.Expr {
-        return self.expression();
+    pub fn parse(self: *Parser) !std.ArrayList(*ast.Stmt) {
+        var statements = std.ArrayList(*ast.Stmt)
+            .init(self.arena.allocator());
+        while (!self.isAtEnd()) try statements.append(try self.statement());
+        return statements;
+    }
+
+    fn statement(self: *Parser) !*ast.Stmt {
+        if (self.match(.{Type.PRINT})) return self.printStatement();
+        return self.expressionStatement();
+    }
+
+    fn printStatement(self: *Parser) !*ast.Stmt {
+        const value = try self.expression();
+        _ = try self.consume(Type.SEMICOLON, "Expect ';' after value.");
+        const stmt = try self.arena.allocator().create(ast.Stmt);
+        stmt.* = ast.Stmt{
+            .print = value,
+        };
+        return stmt;
+    }
+
+    fn expressionStatement(self: *Parser) !*ast.Stmt {
+        const expr = try self.expression();
+        _ = try self.consume(Type.SEMICOLON, "Expect ';' after value.");
+        const stmt = try self.arena.allocator().create(ast.Stmt);
+        stmt.* = ast.Stmt{
+            .expression = expr,
+        };
+        return stmt;
     }
 
     fn expression(self: *Parser) Errors!*ast.Expr {

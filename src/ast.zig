@@ -44,6 +44,11 @@ pub const Unary = struct {
     right: *const Expr,
 };
 
+pub const Stmt = union(enum) {
+    expression: *const Expr,
+    print: *const Expr,
+};
+
 pub const Printer = struct {
     arena: std.heap.ArenaAllocator,
     notation: Notation,
