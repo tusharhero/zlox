@@ -23,7 +23,7 @@ const Token = _tokens.Token;
 const Type = _tokens.TokenType;
 
 const Object = union(enum) {
-    nill: ?void,
+    nil: ?void,
     boolean: bool,
     number: f64,
     string: []const u8,
@@ -68,20 +68,13 @@ pub const Interpreter = struct {
         self.arena.deinit();
     }
 
-    fn isTruthy(self: *Interpreter, object: Object) Object {
+    fn truthVal(self: *Interpreter, object: Object) bool {
         _ = self;
-        const false_object = Object{
-            .boolean = false,
+        return switch (object) {
+            .boolean => |boolean| return boolean,
+            .nil => return false,
+            else => true,
         };
-        const true_object = Object{
-            .boolean = true,
-        };
-        const nill_object = Object{
-            .nill = null,
-        };
-        if (object.boolean == false_object.boolean or
-            object.nill == nill_object.nill) return false_object;
-        return true_object;
     }
 
     fn evalUnary(self: *Interpreter, expression: ast.Unary) !Object {
@@ -100,7 +93,7 @@ pub const Interpreter = struct {
                     },
                 }
             },
-            Type.BANG => return self.isTruthy(right),
+            Type.BANG => return Object{ .boolean = !self.truthVal(right) },
             else => {
                 try main._error(
                     .{ .line = 0 },
@@ -147,6 +140,7 @@ pub const Interpreter = struct {
     pub fn evaluate(self: *Interpreter, expression: *const ast.Expr) errors!Object {
         return switch (expression.*) {
             .literal => |literal| {
+                if (literal.value == null) return Object{ .nil = null };
                 switch (literal.value.?) {
                     .number => |num| return Object{ .number = num },
                     .string => |str| return Object{ .string = str },
