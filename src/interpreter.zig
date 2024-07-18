@@ -30,6 +30,8 @@ const Object = union(enum) {
 };
 
 pub const Interpreter = struct {
+    arena: std.heap.ArenaAllocator,
+
     const Error = error{
         InterpreterError,
     };
@@ -53,8 +55,17 @@ pub const Interpreter = struct {
         Unexpected,
     };
 
+    /// Caller must call deinit.
     pub fn init() Interpreter {
-        return Interpreter{};
+        return Interpreter{
+            .arena = std.heap.ArenaAllocator.init(
+                std.heap.page_allocator,
+            ),
+        };
+    }
+
+    pub fn deinit(self: *Interpreter) void {
+        self.arena.deinit();
     }
 
     fn isTruthy(self: *Interpreter, object: Object) Object {
@@ -103,28 +114,35 @@ pub const Interpreter = struct {
         const left = try self.evaluate(expression.left);
         const right = try self.evaluate(expression.right);
         if (@intFromEnum(left) != @intFromEnum(right)) return Error.InterpreterError;
-        return switch (left) {
+        switch (left) {
             .number => {
                 const l = left.number;
                 const r = right.number;
-                switch (expression.operator._type) {
-                    Type.PLUS => l + r,
-                    Type.MINUS => l - r,
-                    Type.STAR => l * r,
-                    Type.SLASH => l / r,
+                return switch (expression.operator._type) {
+                    Type.PLUS => Object{ .number = l + r },
+                    Type.MINUS => Object{ .number = l - r },
+                    Type.STAR => Object{ .number = l * r },
+                    Type.SLASH => Object{ .number = l / r },
                     else => Error.InterpreterError,
-                }
+                };
             },
             .string => {
                 const l = left.string;
                 const r = right.string;
-                switch (expression.operator._type) {
-                    Type.PLUS => l + r,
+                return switch (expression.operator._type) {
+                    Type.PLUS => Object{
+                        .string = try std.fmt.allocPrint(
+                            self.arena.allocator(),
+                            "{s}{s}",
+                            .{ l, r },
+                        ),
+                    },
                     else => Error.InterpreterError,
-                }
+                };
             },
             else => {},
-        };
+        }
+        return Error.InterpreterError;
     }
     pub fn evaluate(self: *Interpreter, expression: *const ast.Expr) errors!Object {
         return switch (expression.*) {
