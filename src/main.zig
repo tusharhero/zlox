@@ -81,8 +81,6 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     defer printer.deinit();
     var interpreter = Interpreter.init();
     defer interpreter.deinit();
-    // Just print parenthesized expression for now.
-    try stdout.print("{!s}\n", .{printer.printExpr(parsed_expression)});
     try interpreter.interpret(parsed_expression);
 }
 
