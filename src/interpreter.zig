@@ -182,4 +182,24 @@ pub const Interpreter = struct {
             .binary => |binary| self.evalBinary(binary),
         };
     }
+
+    fn stringify(self: *Interpreter, object: Object) ![]const u8 {
+        return switch (object) {
+            .nil => "null",
+            .string => |str| str,
+            .number => |num| try std.fmt.allocPrint(
+                self.arena.allocator(),
+                "{d}",
+                .{num},
+            ),
+            .boolean => |boolean| switch (boolean) {
+                true => "true",
+                false => "false",
+            },
+        };
+    }
+    pub fn interpret(self: *Interpreter, expression: *const ast.Expr) !void {
+        const value = try self.evaluate(expression);
+        try main.stdout.print("{!s}\n", .{self.stringify(value)});
+    }
 };

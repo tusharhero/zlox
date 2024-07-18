@@ -23,9 +23,9 @@ const Parser = @import("parser.zig").Parser;
 const Printer = @import("ast.zig").Printer;
 const Interpreter = @import("interpreter.zig").Interpreter;
 
-const stdout = std.io.getStdOut().writer();
-const stdin = std.io.getStdIn().reader();
-const stderr = std.io.getStdErr().writer();
+pub const stdout = std.io.getStdOut().writer();
+pub const stdin = std.io.getStdIn().reader();
+pub const stderr = std.io.getStdErr().writer();
 
 const max = std.math.maxInt(u64);
 
@@ -83,7 +83,7 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     defer interpreter.deinit();
     // Just print parenthesized expression for now.
     try stdout.print("{!s}\n", .{printer.printExpr(parsed_expression)});
-    try stdout.print("{any}\n", .{interpreter.evaluate(parsed_expression)});
+    try interpreter.interpret(parsed_expression);
 }
 
 fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
