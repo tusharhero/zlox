@@ -139,6 +139,8 @@ pub const Interpreter = struct {
                             .{ l, r },
                         ),
                     },
+                    Type.EQUAL_EQUAL => Object{ .boolean = std.mem.eql(u8, r, l) },
+                    Type.BANG_EQUAL => Object{ .boolean = !std.mem.eql(u8, r, l) },
                     else => Error.InterpreterError,
                 };
             },
