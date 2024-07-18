@@ -33,7 +33,7 @@ pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
 
     const Error = error{
-        InterpreterError,
+        RuntimeError,
     };
 
     const Errors = Error || main.Errors;
@@ -49,6 +49,18 @@ pub const Interpreter = struct {
 
     pub fn deinit(self: *Interpreter) void {
         self.arena.deinit();
+    }
+
+    fn _error(
+        self: *Interpreter,
+        token: Token,
+        message: []const u8,
+    ) !void {
+        _ = self;
+        try main._error(
+            .{ .token = token },
+            message,
+        );
     }
 
     fn truthVal(self: *Interpreter, object: Object) bool {
@@ -68,28 +80,35 @@ pub const Interpreter = struct {
                 switch (right) {
                     .number => |num| return Object{ .number = -1 * num },
                     else => {
-                        try main._error(
-                            .{ .line = 0 },
-                            "Unary operator negation is only available for numbers.",
+                        try self._error(
+                            expression.operator,
+                            "Operand must be a number.",
                         );
-                        return Error.InterpreterError;
+                        return Error.RuntimeError;
                     },
                 }
             },
             Type.BANG => return Object{ .boolean = !self.truthVal(right) },
             else => {
-                try main._error(
-                    .{ .line = 0 },
-                    "Unkown unary operator.",
+                try self._error(
+                    expression.operator,
+                    "is not an unary operator.",
                 );
-                return Error.InterpreterError;
+                return Error.RuntimeError;
             },
         }
+        return Error.RuntimeError;
     }
     fn evalBinary(self: *Interpreter, expression: ast.Binary) !Object {
         const left = try self.evaluate(expression.left);
         const right = try self.evaluate(expression.right);
-        if (@intFromEnum(left) != @intFromEnum(right)) return Error.InterpreterError;
+        if (@intFromEnum(left) != @intFromEnum(right)) {
+            try self._error(
+                expression.operator,
+                "Binary operations between different types are not supported.",
+            );
+            return Error.RuntimeError;
+        }
         switch (left) {
             .number => {
                 const l = left.number;
@@ -108,7 +127,13 @@ pub const Interpreter = struct {
                     Type.EQUAL_EQUAL => Object{ .boolean = r == l },
                     Type.BANG_EQUAL => Object{ .boolean = r != l },
 
-                    else => Error.InterpreterError,
+                    else => {
+                        try self._error(
+                            expression.operator,
+                            "is not an binary operator for numbers.",
+                        );
+                        return Error.RuntimeError;
+                    },
                 };
             },
             .string => {
@@ -124,14 +149,26 @@ pub const Interpreter = struct {
                     },
                     Type.EQUAL_EQUAL => Object{ .boolean = std.mem.eql(u8, r, l) },
                     Type.BANG_EQUAL => Object{ .boolean = !std.mem.eql(u8, r, l) },
-                    else => Error.InterpreterError,
+                    else => {
+                        try self._error(
+                            expression.operator,
+                            "is not an binary operator for strings.",
+                        );
+                        return Error.RuntimeError;
+                    },
                 };
             },
-            else => {},
+            else => {
+                try self._error(
+                    expression.operator,
+                    "Binary operations are not support for type.",
+                );
+                return Error.RuntimeError;
+            },
         }
-        return Error.InterpreterError;
+        return Error.RuntimeError;
     }
-    pub fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
+    fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
         return switch (expression.*) {
             .literal => |literal| {
                 if (literal.value == null) return Object{ .nil = null };
