@@ -99,6 +99,7 @@ pub const Interpreter = struct {
         }
         return Error.RuntimeError;
     }
+
     fn evalBinary(self: *Interpreter, expression: ast.Binary) !Object {
         const left = try self.evaluate(expression.left);
         const right = try self.evaluate(expression.right);
@@ -168,6 +169,7 @@ pub const Interpreter = struct {
         }
         return Error.RuntimeError;
     }
+
     fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
         return switch (expression.*) {
             .literal => |literal| {
@@ -198,6 +200,7 @@ pub const Interpreter = struct {
             },
         };
     }
+
     pub fn interpret(self: *Interpreter, expression: *const ast.Expr) !void {
         const value = try self.evaluate(expression);
         try main.stdout.print("{!s}\n", .{self.stringify(value)});
