@@ -73,7 +73,7 @@ fn report(line: u64, where: []const u8, message: []const u8) !void {
 fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     var lexxer = try Lexxer.init(allocator, source_code);
     defer lexxer.deinit();
-    const tokens = try lexxer.scanTokens();
+    const tokens = lexxer.scanTokens() catch return;
     var parser = try Parser.init(tokens);
     defer parser.deinit();
     const parsed_expression = parser.parse() catch return;
@@ -81,7 +81,7 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     defer printer.deinit();
     var interpreter = Interpreter.init();
     defer interpreter.deinit();
-    try interpreter.interpret(parsed_expression);
+    interpreter.interpret(parsed_expression) catch return;
 }
 
 fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
