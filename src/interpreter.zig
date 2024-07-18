@@ -116,6 +116,15 @@ pub const Interpreter = struct {
                     Type.MINUS => Object{ .number = l - r },
                     Type.STAR => Object{ .number = l * r },
                     Type.SLASH => Object{ .number = l / r },
+
+                    // Not reversing left and right operands gives incorrect results.
+                    Type.GREATER => Object{ .boolean = r < l },
+                    Type.GREATER_EQUAL => Object{ .boolean = r <= l },
+                    Type.LESS => Object{ .boolean = r > l },
+                    Type.LESS_EQUAL => Object{ .boolean = r >= l },
+                    Type.EQUAL_EQUAL => Object{ .boolean = r == l },
+                    Type.BANG_EQUAL => Object{ .boolean = r != l },
+
                     else => Error.InterpreterError,
                 };
             },
