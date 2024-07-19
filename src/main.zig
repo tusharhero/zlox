@@ -79,7 +79,7 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     const statements = parser.parse() catch return;
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
-    var interpreter = Interpreter.init();
+    var interpreter = Interpreter.init(allocator);
     defer interpreter.deinit();
     interpreter.interpret(statements) catch return;
 }

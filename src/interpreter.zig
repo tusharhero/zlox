@@ -73,13 +73,12 @@ pub const Interpreter = struct {
     const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
-    pub fn init() Interpreter {
-        var arena = std.heap.ArenaAllocator.init(
-            std.heap.page_allocator,
-        );
+    pub fn init(allocator: std.mem.Allocator) Interpreter {
         return Interpreter{
-            .arena = arena,
-            .environment = Env.init(arena.allocator()),
+            .arena = std.heap.ArenaAllocator.init(
+                std.heap.page_allocator,
+            ),
+            .environment = Env.init(allocator),
         };
     }
 
