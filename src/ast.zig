@@ -26,6 +26,7 @@ pub const Expr = union(enum) {
     grouping: Grouping,
     literal: Literal,
     unary: Unary,
+    variable: Variable,
 };
 
 pub const Binary = struct {
@@ -43,10 +44,18 @@ pub const Unary = struct {
     operator: Token,
     right: *const Expr,
 };
+pub const Variable = struct {
+    name: Token,
+};
 
 pub const Stmt = union(enum) {
     expression: *const Expr,
     print: *const Expr,
+    variable: VarDecl,
+};
+pub const VarDecl = struct {
+    name: Token,
+    intializer: ?*const Expr,
 };
 
 pub const Printer = struct {
