@@ -95,8 +95,30 @@ pub const Parser = struct {
     pub fn parse(self: *Parser) !std.ArrayList(*ast.Stmt) {
         var statements = std.ArrayList(*ast.Stmt)
             .init(self.arena.allocator());
-        while (!self.isAtEnd()) try statements.append(try self.statement());
+        while (!self.isAtEnd()) try statements.append(try self.declaration());
         return statements;
+    }
+
+    fn declaration(self: *Parser) !*ast.Stmt {
+        if (self.match(.{Type.VAR})) return self.varDeclaration();
+        return self.statement();
+    }
+
+    fn varDeclaration(self: *Parser) !*ast.Stmt {
+        const name = try self.consume(Type.IDENTIFIER, "Expect variable name.");
+
+        var initializer: ?*const ast.Expr = null;
+        if (self.match(.{Type.EQUAL})) initializer = try self.expression();
+
+        _ = try self.consume(Type.SEMICOLON, "Expect ';' after variable declaration");
+        const variable_declaration = try self.arena.allocator().create(ast.Stmt);
+        variable_declaration.* = ast.Stmt{
+            .variable = ast.VarDecl{
+                .name = name,
+                .intializer = initializer,
+            },
+        };
+        return variable_declaration;
     }
 
     fn statement(self: *Parser) !*ast.Stmt {
@@ -277,6 +299,13 @@ pub const Parser = struct {
             };
             expr = compound_expr;
             return expr;
+        }
+        if (self.match(.{Type.IDENTIFIER})) {
+            const variable_expression = try self.arena.allocator().create(ast.Expr);
+            variable_expression.* = ast.Expr{
+                .variable = ast.Variable{ .name = self.previous() },
+            };
+            return variable_expression;
         }
 
         try self._error(self.peek(), "Expect expression.");
