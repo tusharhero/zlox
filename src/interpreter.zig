@@ -29,38 +29,63 @@ const Object = union(enum) {
     string: []const u8,
 };
 
+fn _error(token: Token, message: []const u8) !void {
+    try main._error(
+        .{ .token = token },
+        message,
+    );
+}
+const Error = error{
+    RuntimeError,
+};
+
+pub const Env = struct {
+    values: std.StringArrayHashMap(Object),
+
+    /// Caller must call deinit.
+    pub fn init(allocator: std.mem.Allocator) Env {
+        return Env{
+            .values = std
+                .StringArrayHashMap(Object).init(allocator),
+        };
+    }
+    pub fn deinit(self: *Env) void {
+        self.values.deinit();
+    }
+
+    pub fn define(self: *Env, name: []const u8, value: Object) !void {
+        try self.values.put(name, value);
+    }
+
+    pub fn get(self: *Env, name: Token) !Object {
+        if (self.values.contains(name.lexeme))
+            return self.values.get(name.lexeme).?;
+
+        try _error(name, "Undefined variable.");
+
+        return Error.RuntimeError;
+    }
+};
 pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
-
-    const Error = error{
-        RuntimeError,
-    };
+    environment: Env,
 
     const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
     pub fn init() Interpreter {
+        var arena = std.heap.ArenaAllocator.init(
+            std.heap.page_allocator,
+        );
         return Interpreter{
-            .arena = std.heap.ArenaAllocator.init(
-                std.heap.page_allocator,
-            ),
+            .arena = arena,
+            .environment = Env.init(arena.allocator()),
         };
     }
 
     pub fn deinit(self: *Interpreter) void {
+        self.environment.deinit();
         self.arena.deinit();
-    }
-
-    fn _error(
-        self: *Interpreter,
-        token: Token,
-        message: []const u8,
-    ) !void {
-        _ = self;
-        try main._error(
-            .{ .token = token },
-            message,
-        );
     }
 
     fn truthVal(self: *Interpreter, object: Object) bool {
@@ -80,7 +105,7 @@ pub const Interpreter = struct {
                 switch (right) {
                     .number => |num| return Object{ .number = -1 * num },
                     else => {
-                        try self._error(
+                        try _error(
                             expression.operator,
                             "Operand must be a number.",
                         );
@@ -90,7 +115,7 @@ pub const Interpreter = struct {
             },
             Type.BANG => return Object{ .boolean = !self.truthVal(right) },
             else => {
-                try self._error(
+                try _error(
                     expression.operator,
                     "is not an unary operator.",
                 );
@@ -104,7 +129,7 @@ pub const Interpreter = struct {
         const left = try self.evaluate(expression.left);
         const right = try self.evaluate(expression.right);
         if (@intFromEnum(left) != @intFromEnum(right)) {
-            try self._error(
+            try _error(
                 expression.operator,
                 "Binary operations between different types are not supported.",
             );
@@ -129,7 +154,7 @@ pub const Interpreter = struct {
                     Type.BANG_EQUAL => Object{ .boolean = r != l },
 
                     else => {
-                        try self._error(
+                        try _error(
                             expression.operator,
                             "is not an binary operator for numbers.",
                         );
@@ -151,7 +176,7 @@ pub const Interpreter = struct {
                     Type.EQUAL_EQUAL => Object{ .boolean = std.mem.eql(u8, r, l) },
                     Type.BANG_EQUAL => Object{ .boolean = !std.mem.eql(u8, r, l) },
                     else => {
-                        try self._error(
+                        try _error(
                             expression.operator,
                             "is not an binary operator for strings.",
                         );
@@ -160,7 +185,7 @@ pub const Interpreter = struct {
                 };
             },
             else => {
-                try self._error(
+                try _error(
                     expression.operator,
                     "Binary operations are not support for type.",
                 );
@@ -168,6 +193,10 @@ pub const Interpreter = struct {
             },
         }
         return Error.RuntimeError;
+    }
+
+    fn evalVariable(self: *Interpreter, expression: ast.Variable) !Object {
+        return try self.environment.get(expression.name);
     }
 
     fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
@@ -182,6 +211,7 @@ pub const Interpreter = struct {
             .grouping => |grouping| self.evaluate(grouping.expression),
             .unary => |unary| self.evalUnary(unary),
             .binary => |binary| self.evalBinary(binary),
+            .variable => |variable| self.evalVariable(variable),
         };
     }
 
@@ -209,11 +239,18 @@ pub const Interpreter = struct {
         const value = try self.evaluate(stmt.print);
         try main.stdout.print("{!s}\n", .{self.stringify(value)});
     }
+    fn varStatement(self: *Interpreter, stmt: ast.VarDecl) !void {
+        var value: Object = Object{ .nil = null };
+        if (stmt.intializer != null)
+            value = try self.evaluate(stmt.intializer.?);
+        try self.environment.define(stmt.name.lexeme, value);
+    }
 
     fn execute(self: *Interpreter, statement: *ast.Stmt) !void {
         try switch (statement.*) {
             .expression => self.expressionStatement(statement),
             .print => self.printStatement(statement),
+            .variable => |_var| self.varStatement(_var),
         };
     }
 
