@@ -201,8 +201,25 @@ pub const Interpreter = struct {
         };
     }
 
-    pub fn interpret(self: *Interpreter, expression: *const ast.Expr) !void {
-        const value = try self.evaluate(expression);
+    fn expressionStatement(self: *Interpreter, stmt: *ast.Stmt) !void {
+        _ = try self.evaluate(stmt.expression);
+    }
+
+    fn printStatement(self: *Interpreter, stmt: *ast.Stmt) !void {
+        const value = try self.evaluate(stmt.print);
         try main.stdout.print("{!s}\n", .{self.stringify(value)});
+    }
+
+    fn execute(self: *Interpreter, statement: *ast.Stmt) !void {
+        try switch (statement.*) {
+            .expression => self.expressionStatement(statement),
+            .print => self.printStatement(statement),
+        };
+    }
+
+    pub fn interpret(self: *Interpreter, statements: std.ArrayList(*ast.Stmt)) !void {
+        for (statements.items) |statement| {
+            try self.execute(statement);
+        }
     }
 };

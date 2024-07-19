@@ -76,12 +76,12 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     const tokens = lexxer.scanTokens() catch return;
     var parser = try Parser.init(tokens);
     defer parser.deinit();
-    const parsed_expression = parser.parse() catch return;
+    const statements = parser.parse() catch return;
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
     var interpreter = Interpreter.init();
     defer interpreter.deinit();
-    interpreter.interpret(parsed_expression) catch return;
+    interpreter.interpret(statements) catch return;
 }
 
 fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
