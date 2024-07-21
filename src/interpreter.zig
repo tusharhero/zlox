@@ -41,20 +41,27 @@ const Error = error{
 
 pub const Env = struct {
     values: std.StringArrayHashMap(Object),
+    arena: std.heap.ArenaAllocator,
 
     /// Caller must call deinit.
     pub fn init(allocator: std.mem.Allocator) Env {
         return Env{
             .values = std
                 .StringArrayHashMap(Object).init(allocator),
+            .arena = std.heap.ArenaAllocator.init(
+                std.heap.page_allocator,
+            ),
         };
     }
     pub fn deinit(self: *Env) void {
+        self.arena.deinit();
         self.values.deinit();
     }
 
     pub fn define(self: *Env, name: []const u8, value: Object) !void {
-        try self.values.put(name, value);
+        // Duplicate the name because it string maybe freed.
+        const name_dupe = try self.arena.allocator().dupe(u8, name);
+        try self.values.put(name_dupe, value);
     }
 
     pub fn get(self: *Env, name: Token) !Object {

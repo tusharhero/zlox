@@ -70,7 +70,7 @@ fn report(line: u64, where: []const u8, message: []const u8) !void {
     );
 }
 
-fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
+fn run(allocator: std.mem.Allocator, source_code: []u8, interpreter: *Interpreter) !void {
     var lexxer = try Lexxer.init(allocator, source_code);
     defer lexxer.deinit();
     const tokens = lexxer.scanTokens() catch return;
@@ -79,8 +79,6 @@ fn run(allocator: std.mem.Allocator, source_code: []u8) !void {
     const statements = parser.parse() catch return;
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
-    var interpreter = Interpreter.init(allocator);
-    defer interpreter.deinit();
     interpreter.interpret(statements) catch return;
 }
 
@@ -98,10 +96,16 @@ fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
         else => return err,
     };
     defer allocator.free(source_code);
-    try run(allocator, source_code);
+
+    var interpreter = Interpreter.init(allocator);
+    defer interpreter.deinit();
+
+    try run(allocator, source_code, &interpreter);
 }
 
 fn runPrompt(allocator: std.mem.Allocator) !void {
+    var interpreter = Interpreter.init(allocator);
+    defer interpreter.deinit();
     while (b: {
         try stdout.print("> ", .{});
         break :b try stdin.readUntilDelimiterOrEofAlloc(
@@ -110,7 +114,7 @@ fn runPrompt(allocator: std.mem.Allocator) !void {
             max,
         );
     }) |line| : (allocator.free(line)) {
-        try run(allocator, line);
+        try run(allocator, line, &interpreter);
     }
 }
 
