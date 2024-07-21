@@ -72,6 +72,17 @@ pub const Env = struct {
 
         return Error.RuntimeError;
     }
+
+    pub fn debugPrint(self: *Env) !void {
+        var it = self.values.iterator();
+        var i: u64 = 0;
+        while (it.next()) |pair| : (i += 1) {
+            std.debug.print(
+                "{d}: {s}: {any}\n",
+                .{ i, pair.key_ptr.*, pair.value_ptr },
+            );
+        }
+    }
 };
 pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
