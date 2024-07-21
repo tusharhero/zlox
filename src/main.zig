@@ -71,12 +71,12 @@ fn report(line: u64, where: []const u8, message: []const u8) !void {
 }
 
 fn run(allocator: std.mem.Allocator, source_code: []u8, interpreter: *Interpreter) !void {
-    var lexxer = try Lexxer.init(allocator, source_code);
+    var lexxer = try Lexxer.init(allocator);
     defer lexxer.deinit();
-    const tokens = lexxer.scanTokens() catch return;
-    var parser = try Parser.init(tokens);
+    const tokens = lexxer.scanTokens(source_code) catch return;
+    var parser = try Parser.init();
     defer parser.deinit();
-    const statements = parser.parse() catch return;
+    const statements = parser.parse(tokens) catch return;
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
     interpreter.interpret(statements) catch return;

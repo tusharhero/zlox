@@ -31,7 +31,7 @@ pub const Lexxer = struct {
     line: u64,
 
     /// Caller must call deinit.
-    pub fn init(allocator: std.mem.Allocator, source_code: []u8) !Lexxer {
+    pub fn init(allocator: std.mem.Allocator) !Lexxer {
         const tokens = std.ArrayList(Token).init(allocator);
 
         var keywords = std.StringArrayHashMap(Type).init(allocator);
@@ -53,7 +53,7 @@ pub const Lexxer = struct {
         try keywords.put("while", Type.WHILE);
 
         return Lexxer{
-            .source_code = source_code,
+            .source_code = undefined,
             .tokens = tokens,
             .keywords = keywords,
             .start = 0,
@@ -211,7 +211,8 @@ pub const Lexxer = struct {
         return self.current >= self.source_code.len;
     }
 
-    pub fn scanTokens(self: *Lexxer) !std.ArrayList(Token) {
+    pub fn scanTokens(self: *Lexxer, source_code: []u8) !std.ArrayList(Token) {
+        self.source_code = source_code;
         while (!self.isAtEnd()) {
             // We are at the beginning of the next lexeme.
             self.start = self.current;

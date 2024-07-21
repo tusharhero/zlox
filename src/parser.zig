@@ -34,12 +34,12 @@ pub const Parser = struct {
     const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
-    pub fn init(tokens: std.ArrayList(Token)) !Parser {
+    pub fn init() !Parser {
         return Parser{
             .arena = std.heap.ArenaAllocator.init(
                 std.heap.page_allocator,
             ),
-            .tokens = tokens,
+            .tokens = undefined,
             .current = 0,
         };
     }
@@ -92,7 +92,8 @@ pub const Parser = struct {
         return error.ParseError;
     }
 
-    pub fn parse(self: *Parser) !std.ArrayList(*ast.Stmt) {
+    pub fn parse(self: *Parser, tokens: std.ArrayList(Token)) !std.ArrayList(*ast.Stmt) {
+        self.tokens = tokens;
         var statements = std.ArrayList(*ast.Stmt)
             .init(self.arena.allocator());
         while (!self.isAtEnd()) try statements.append(try self.declaration());
