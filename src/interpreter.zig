@@ -63,6 +63,15 @@ pub const Env = struct {
         const name_dupe = try self.arena.allocator().dupe(u8, name);
         try self.values.put(name_dupe, value);
     }
+    pub fn assign(self: *Env, name: Token, value: Object) !void {
+        if (self.values.contains(name.lexeme)) {
+            // Duplicate the name because it string maybe freed.
+            const name_dupe = try self.arena.allocator().dupe(u8, name.lexeme);
+            try self.values.put(name_dupe, value);
+        } else {
+            try _error(name, "Undefined variable.");
+        }
+    }
 
     pub fn get(self: *Env, name: Token) !Object {
         if (self.values.contains(name.lexeme))
@@ -212,10 +221,11 @@ pub const Interpreter = struct {
         return Error.RuntimeError;
     }
 
-    fn evalVariable(self: *Interpreter, expression: ast.Variable) !Object {
-        return try self.environment.get(expression.name);
+    fn evalAssignment(self: *Interpreter, expression: ast.Assignment) !Object {
+        const value = try self.evaluate(expression.value);
+        try self.environment.assign(expression.name, value);
+        return value;
     }
-
     fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
         return switch (expression.*) {
             .literal => |literal| {
@@ -228,7 +238,8 @@ pub const Interpreter = struct {
             .grouping => |grouping| self.evaluate(grouping.expression),
             .unary => |unary| self.evalUnary(unary),
             .binary => |binary| self.evalBinary(binary),
-            .variable => |variable| self.evalVariable(variable),
+            .variable => |variable| self.environment.get(variable.name),
+            .assignment => |assignment| self.evalAssignment(assignment),
         };
     }
 

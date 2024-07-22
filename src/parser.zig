@@ -152,17 +152,40 @@ pub const Parser = struct {
     }
 
     fn comma(self: *Parser) !*ast.Expr {
-        var expr = try self.equality();
+        var expr = try self.assignment();
         while (self.match(.{Type.COMMA})) {
             const operator: Token = self.previous();
             const compound_expr = try self.arena.allocator().create(ast.Expr);
-            const right = try self.equality();
+            const right = try self.assignment();
             compound_expr.* = ast.Expr{ .binary = ast.Binary{
                 .left = expr,
                 .operator = operator,
                 .right = right,
             } };
             expr = compound_expr;
+        }
+        return expr;
+    }
+
+    fn assignment(self: *Parser) !*ast.Expr {
+        var expr = try self.equality();
+        if (self.match(.{Type.EQUAL})) {
+            const equals = self.previous();
+            const value = try self.assignment();
+            try switch (expr.*) {
+                .variable => |_var| {
+                    const compound_expr =
+                        try self.arena.allocator().create(ast.Expr);
+                    compound_expr.* = ast.Expr{
+                        .assignment = ast.Assignment{
+                            .name = _var.name,
+                            .value = value,
+                        },
+                    };
+                    expr = compound_expr;
+                },
+                else => self._error(equals, "Invalid assignment target."),
+            };
         }
         return expr;
     }

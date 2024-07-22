@@ -27,6 +27,7 @@ pub const Expr = union(enum) {
     literal: Literal,
     unary: Unary,
     variable: Variable,
+    assignment: Assignment,
 };
 
 pub const Binary = struct {
@@ -46,6 +47,10 @@ pub const Unary = struct {
 };
 pub const Variable = struct {
     name: Token,
+};
+pub const Assignment = struct {
+    name: Token,
+    value: *const Expr,
 };
 
 pub const Stmt = union(enum) {
