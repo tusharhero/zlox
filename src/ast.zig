@@ -57,10 +57,14 @@ pub const Stmt = union(enum) {
     expression: *const Expr,
     print: *const Expr,
     variable: VarDecl,
+    block: Block,
 };
 pub const VarDecl = struct {
     name: Token,
     intializer: ?*const Expr,
+};
+pub const Block = struct {
+    statements: std.ArrayList(Stmt),
 };
 
 pub const Printer = struct {

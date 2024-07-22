@@ -41,13 +41,15 @@ const Error = error{
 
 pub const Env = struct {
     values: std.StringArrayHashMap(Object),
+    enclosing_environment: ?*Env,
     arena: std.heap.ArenaAllocator,
 
     /// Caller must call deinit.
-    pub fn init(allocator: std.mem.Allocator) Env {
+    pub fn init(allocator: std.mem.Allocator, enclosing_environment: ?*Env) Env {
         return Env{
             .values = std
                 .StringArrayHashMap(Object).init(allocator),
+            .enclosing_environment = enclosing_environment,
             .arena = std.heap.ArenaAllocator.init(
                 std.heap.page_allocator,
             ),
@@ -59,24 +61,31 @@ pub const Env = struct {
     }
 
     pub fn define(self: *Env, name: []const u8, value: Object) !void {
-        // Duplicate the name because it string maybe freed.
+        // Duplicate the name because its string maybe freed.
         const name_dupe = try self.arena.allocator().dupe(u8, name);
         try self.values.put(name_dupe, value);
     }
     pub fn assign(self: *Env, name: Token, value: Object) !void {
         if (self.values.contains(name.lexeme)) {
-            // Duplicate the name because it string maybe freed.
+            // Duplicate the name because its string maybe freed.
             const name_dupe = try self.arena.allocator().dupe(u8, name.lexeme);
             try self.values.put(name_dupe, value);
         } else {
-            try _error(name, "Undefined variable.");
+            if (self.enclosing_environment != null) {
+                try self.enclosing_environment.?.assign(name, value);
+            } else {
+                try _error(name, "Undefined variable.");
+                return;
+            }
         }
     }
 
     pub fn get(self: *Env, name: Token) !Object {
         if (self.values.contains(name.lexeme))
             return self.values.get(name.lexeme).?;
-
+        if (self.enclosing_environment != null) {
+            return self.enclosing_environment.?.get(name);
+        }
         try _error(name, "Undefined variable.");
 
         return Error.RuntimeError;
@@ -105,7 +114,7 @@ pub const Interpreter = struct {
             .arena = std.heap.ArenaAllocator.init(
                 std.heap.page_allocator,
             ),
-            .environment = Env.init(allocator),
+            .environment = Env.init(allocator, null),
         };
     }
 
@@ -259,11 +268,11 @@ pub const Interpreter = struct {
         };
     }
 
-    fn expressionStatement(self: *Interpreter, stmt: *ast.Stmt) !void {
+    fn expressionStatement(self: *Interpreter, stmt: *const ast.Stmt) !void {
         _ = try self.evaluate(stmt.expression);
     }
 
-    fn printStatement(self: *Interpreter, stmt: *ast.Stmt) !void {
+    fn printStatement(self: *Interpreter, stmt: *const ast.Stmt) !void {
         const value = try self.evaluate(stmt.print);
         try main.stdout.print("{!s}\n", .{self.stringify(value)});
     }
@@ -273,12 +282,23 @@ pub const Interpreter = struct {
             value = try self.evaluate(stmt.intializer.?);
         try self.environment.define(stmt.name.lexeme, value);
     }
+    fn blockStatement(self: *Interpreter, block: ast.Block) Errors!void {
+        const allocator = self.arena.allocator();
+        const prev = try allocator.create(Env);
+        prev.* = self.environment;
+        self.environment = Env.init(allocator, prev);
+        for (block.statements.items) |statement| {
+            try self.execute(&statement);
+        }
+        self.environment = prev.*;
+    }
 
-    fn execute(self: *Interpreter, statement: *ast.Stmt) !void {
+    fn execute(self: *Interpreter, statement: *const ast.Stmt) !void {
         try switch (statement.*) {
             .expression => self.expressionStatement(statement),
             .print => self.printStatement(statement),
             .variable => |_var| self.varStatement(_var),
+            .block => |block| self.blockStatement(block),
         };
     }
 

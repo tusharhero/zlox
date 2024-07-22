@@ -124,6 +124,7 @@ pub const Parser = struct {
 
     fn statement(self: *Parser) !*ast.Stmt {
         if (self.match(.{Type.PRINT})) return self.printStatement();
+        if (self.match(.{Type.LEFT_BRACE})) return self.blockStatement();
         return self.expressionStatement();
     }
 
@@ -135,6 +136,23 @@ pub const Parser = struct {
             .print = value,
         };
         return stmt;
+    }
+
+    fn blockStatement(self: *Parser) Errors!*ast.Stmt {
+        const allocator = self.arena.allocator();
+        var statements = std.ArrayList(ast.Stmt).init(allocator);
+        while (!self.check(Type.RIGHT_BRACE) and !self.isAtEnd()) {
+            const current_statement = try self.declaration();
+            try statements.append(current_statement.*);
+        }
+        _ = try self.consume(Type.RIGHT_BRACE, "Expect '}' after block.");
+        const block_statement = try allocator.create(ast.Stmt);
+        block_statement.* = ast.Stmt{
+            .block = ast.Block{
+                .statements = statements,
+            },
+        };
+        return block_statement;
     }
 
     fn expressionStatement(self: *Parser) !*ast.Stmt {
