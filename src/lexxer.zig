@@ -144,7 +144,11 @@ pub const Lexxer = struct {
 
         const text = self.source_code[self.start..self.current];
         const _type = self.keywords.get(text) orelse Type.IDENTIFIER;
-        try self.addToken(_type, _tokens.Literal{ .string = text });
+        switch (_type) {
+            Type.TRUE => try self.addToken(_type, _tokens.Literal{ .boolean = true }),
+            Type.FALSE => try self.addToken(_type, _tokens.Literal{ .boolean = false }),
+            else => try self.addToken(_type, _tokens.Literal{ .string = text }),
+        }
     }
 
     fn comments(self: *Lexxer) !void {

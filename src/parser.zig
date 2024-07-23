@@ -316,7 +316,7 @@ pub const Parser = struct {
             expr.* = ast.Expr{
                 .literal = ast.Literal{
                     .value = _tokens.Literal{
-                        .string = "false",
+                        .boolean = false,
                     },
                 },
             };
@@ -326,7 +326,7 @@ pub const Parser = struct {
             expr.* = ast.Expr{
                 .literal = ast.Literal{
                     .value = _tokens.Literal{
-                        .string = "true",
+                        .boolean = true,
                     },
                 },
             };

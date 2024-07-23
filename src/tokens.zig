@@ -67,6 +67,7 @@ pub const TokenType = enum {
 pub const Literal = union(enum) {
     number: f64,
     string: []const u8,
+    boolean: bool,
 };
 
 pub const Token = struct {

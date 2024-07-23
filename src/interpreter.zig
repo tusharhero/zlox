@@ -242,6 +242,7 @@ pub const Interpreter = struct {
                 switch (literal.value.?) {
                     .number => |num| return Object{ .number = num },
                     .string => |str| return Object{ .string = str },
+                    .boolean => |boolean| return Object{ .boolean = boolean },
                 }
             },
             .grouping => |grouping| self.evaluate(grouping.expression),
