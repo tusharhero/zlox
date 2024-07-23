@@ -60,6 +60,7 @@ pub const Stmt = union(enum) {
     variable: VarDecl,
     block: Block,
     _if: IfStmt,
+    _while: WhileStmt,
 };
 pub const VarDecl = struct {
     name: Token,
@@ -72,6 +73,10 @@ pub const IfStmt = struct {
     condition: *const Expr,
     thenBranch: *const Stmt,
     elseBranch: ?*const Stmt,
+};
+pub const WhileStmt = struct {
+    condition: *const Expr,
+    body: *const Stmt,
 };
 
 pub const Printer = struct {

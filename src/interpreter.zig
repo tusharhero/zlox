@@ -314,6 +314,11 @@ pub const Interpreter = struct {
             try self.execute(statement.elseBranch.?);
     }
 
+    fn whileStatement(self: *Interpreter, statement: ast.WhileStmt) Errors!void {
+        while (self.truthVal(try self.evaluate(statement.condition)))
+            try self.execute(statement.body);
+    }
+
     fn execute(self: *Interpreter, statement: *const ast.Stmt) !void {
         try switch (statement.*) {
             .expression => self.expressionStatement(statement),
@@ -321,6 +326,7 @@ pub const Interpreter = struct {
             .variable => |_var| self.varStatement(_var),
             .block => |block| self.blockStatement(block),
             ._if => |_if| self.ifStatement(_if),
+            ._while => |_while| self.whileStatement(_while),
         };
     }
 

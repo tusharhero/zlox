@@ -123,10 +123,26 @@ pub const Parser = struct {
     }
 
     fn statement(self: *Parser) !*ast.Stmt {
+        if (self.match(.{Type.WHILE})) return self.whileStatement();
         if (self.match(.{Type.IF})) return self.ifStatement();
         if (self.match(.{Type.PRINT})) return self.printStatement();
         if (self.match(.{Type.LEFT_BRACE})) return self.blockStatement();
         return self.expressionStatement();
+    }
+
+    fn whileStatement(self: *Parser) Errors!*ast.Stmt {
+        _ = try self.consume(Type.LEFT_PAREN, "Expect '(' after 'while'.");
+        const condition = try self.expression();
+        _ = try self.consume(Type.RIGHT_PAREN, "Expect ')' after while condition.");
+        const body = try self.statement();
+        const while_statement = try self.arena.allocator().create(ast.Stmt);
+        while_statement.* = ast.Stmt{
+            ._while = ast.WhileStmt{
+                .condition = condition,
+                .body = body,
+            },
+        };
+        return while_statement;
     }
 
     fn ifStatement(self: *Parser) Errors!*ast.Stmt {
