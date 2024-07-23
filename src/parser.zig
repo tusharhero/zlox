@@ -207,7 +207,7 @@ pub const Parser = struct {
     }
 
     fn assignment(self: *Parser) !*ast.Expr {
-        var expr = try self.equality();
+        var expr = try self._or();
         if (self.match(.{Type.EQUAL})) {
             const equals = self.previous();
             const value = try self.assignment();
@@ -225,6 +225,42 @@ pub const Parser = struct {
                 },
                 else => self._error(equals, "Invalid assignment target."),
             };
+        }
+        return expr;
+    }
+
+    fn _or(self: *Parser) !*ast.Expr {
+        var expr = try self._and();
+        while (self.match(.{Type.OR})) {
+            const operator: Token = self.previous();
+            const compound_expr = try self.arena.allocator().create(ast.Expr);
+            const right = try self._and();
+            compound_expr.* = ast.Expr{
+                .logical = ast.Binary{
+                    .left = expr,
+                    .operator = operator,
+                    .right = right,
+                },
+            };
+            expr = compound_expr;
+        }
+        return expr;
+    }
+
+    fn _and(self: *Parser) !*ast.Expr {
+        var expr = try self.equality();
+        while (self.match(.{Type.AND})) {
+            const operator: Token = self.previous();
+            const compound_expr = try self.arena.allocator().create(ast.Expr);
+            const right = try self.equality();
+            compound_expr.* = ast.Expr{
+                .logical = ast.Binary{
+                    .left = expr,
+                    .operator = operator,
+                    .right = right,
+                },
+            };
+            expr = compound_expr;
         }
         return expr;
     }

@@ -235,6 +235,17 @@ pub const Interpreter = struct {
         try self.environment.assign(expression.name, value);
         return value;
     }
+
+    fn evalLogical(self: *Interpreter, expression: ast.Binary) !Object {
+        const left = try self.evaluate(expression.left);
+        switch (expression.operator._type) {
+            Type.OR => if (self.truthVal(left)) return left,
+            Type.AND => if (!self.truthVal(left)) return left,
+            else => unreachable,
+        }
+        return self.evaluate(expression.right);
+    }
+
     fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
         return switch (expression.*) {
             .literal => |literal| {
@@ -250,12 +261,13 @@ pub const Interpreter = struct {
             .binary => |binary| self.evalBinary(binary),
             .variable => |variable| self.environment.get(variable.name),
             .assignment => |assignment| self.evalAssignment(assignment),
+            .logical => |logical| self.evalLogical(logical),
         };
     }
 
     fn stringify(self: *Interpreter, object: Object) ![]const u8 {
         return switch (object) {
-            .nil => "null",
+            .nil => "nil",
             .string => |str| str,
             .number => |num| try std.fmt.allocPrint(
                 self.arena.allocator(),

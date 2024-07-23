@@ -28,6 +28,7 @@ pub const Expr = union(enum) {
     unary: Unary,
     variable: Variable,
     assignment: Assignment,
+    logical: Binary,
 };
 
 pub const Binary = struct {
