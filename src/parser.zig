@@ -123,11 +123,84 @@ pub const Parser = struct {
     }
 
     fn statement(self: *Parser) !*ast.Stmt {
+        if (self.match(.{Type.FOR})) return self.forStatement();
         if (self.match(.{Type.WHILE})) return self.whileStatement();
         if (self.match(.{Type.IF})) return self.ifStatement();
         if (self.match(.{Type.PRINT})) return self.printStatement();
         if (self.match(.{Type.LEFT_BRACE})) return self.blockStatement();
         return self.expressionStatement();
+    }
+
+    /// Converts the for format into while tree structure.
+    fn forStatement(self: *Parser) Errors!*ast.Stmt {
+        const allocator = self.arena.allocator();
+
+        _ = try self.consume(Type.LEFT_PAREN, "Expect '(' after 'for'.");
+
+        var initializer: ?*ast.Stmt = undefined;
+        if (self.match(.{Type.SEMICOLON}))
+            initializer = null
+        else if (self.match(.{Type.VAR}))
+            initializer = try self.varDeclaration()
+        else
+            initializer = try self.expressionStatement();
+
+        var condition: *ast.Expr = undefined;
+        if (!self.match(.{Type.SEMICOLON})) {
+            condition = try self.expression();
+            _ = try self.consume(Type.SEMICOLON, "Expect ';' after loop condition.");
+        } else {
+            condition = try allocator.create(ast.Expr);
+            condition.* = ast.Expr{
+                .literal = ast.Literal{
+                    .value = _tokens.Literal{ .boolean = true },
+                },
+            };
+        }
+
+        var increment: ?*ast.Stmt = undefined;
+        if (!self.match(.{Type.RIGHT_PAREN})) {
+            const expr = try self.expression();
+            increment = try allocator.create(ast.Stmt);
+            increment.?.* = ast.Stmt{
+                .expression = expr,
+            };
+        } else increment = null;
+
+        _ = try self.consume(Type.RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        const body = try self.statement();
+
+        var compound_body_list = std.ArrayList(ast.Stmt).init(allocator);
+        try compound_body_list.append(body.*);
+        if (increment != null) try compound_body_list.append(increment.?.*);
+
+        const compound_body_block = try allocator.create(ast.Stmt);
+        compound_body_block.* = ast.Stmt{
+            .block = ast.Block{
+                .statements = compound_body_list,
+            },
+        };
+
+        const while_statement = try allocator.create(ast.Stmt);
+        while_statement.* = ast.Stmt{
+            ._while = ast.WhileStmt{
+                .condition = condition,
+                .body = compound_body_block,
+            },
+        };
+
+        var for_block_list = std.ArrayList(ast.Stmt).init(allocator);
+        if (initializer != null) try for_block_list.append(initializer.?.*);
+        try for_block_list.append(while_statement.*);
+        const for_block = try allocator.create(ast.Stmt);
+        for_block.* = ast.Stmt{
+            .block = ast.Block{
+                .statements = for_block_list,
+            },
+        };
+
+        return for_block;
     }
 
     fn whileStatement(self: *Parser) Errors!*ast.Stmt {
