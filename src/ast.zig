@@ -58,6 +58,7 @@ pub const Stmt = union(enum) {
     print: *const Expr,
     variable: VarDecl,
     block: Block,
+    _if: IfStmt,
 };
 pub const VarDecl = struct {
     name: Token,
@@ -65,6 +66,11 @@ pub const VarDecl = struct {
 };
 pub const Block = struct {
     statements: std.ArrayList(Stmt),
+};
+pub const IfStmt = struct {
+    condition: *const Expr,
+    thenBranch: *const Stmt,
+    elseBranch: ?*const Stmt,
 };
 
 pub const Printer = struct {

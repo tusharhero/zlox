@@ -293,12 +293,21 @@ pub const Interpreter = struct {
         self.environment = prev.*;
     }
 
+    fn ifStatement(self: *Interpreter, statement: ast.IfStmt) Errors!void {
+        const truthy = self.truthVal(try self.evaluate(statement.condition));
+        if (truthy)
+            try self.execute(statement.thenBranch)
+        else if (statement.elseBranch != null)
+            try self.execute(statement.elseBranch.?);
+    }
+
     fn execute(self: *Interpreter, statement: *const ast.Stmt) !void {
         try switch (statement.*) {
             .expression => self.expressionStatement(statement),
             .print => self.printStatement(statement),
             .variable => |_var| self.varStatement(_var),
             .block => |block| self.blockStatement(block),
+            ._if => |_if| self.ifStatement(_if),
         };
     }
 
