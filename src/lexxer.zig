@@ -22,7 +22,7 @@ const Token = _tokens.Token;
 const Type = _tokens.TokenType;
 
 pub const Lexxer = struct {
-    source_code: []u8,
+    source_code: []const u8,
     tokens: std.ArrayList(Token),
     keywords: std.StringArrayHashMap(Type),
 
@@ -73,7 +73,7 @@ pub const Lexxer = struct {
     }
 
     fn addToken(self: *Lexxer, _type: Type, literal: ?_tokens.Literal) !void {
-        const lexeme: []u8 = self.source_code[self.start..self.current];
+        const lexeme: []const u8 = self.source_code[self.start..self.current];
         try self.tokens.append(Token{
             ._type = _type,
             .lexeme = lexeme,
@@ -115,7 +115,7 @@ pub const Lexxer = struct {
         // The closing ".
         _ = self.advance();
 
-        const value: []u8 = self.source_code[self.start + 1 .. self.current - 1];
+        const value: []const u8 = self.source_code[self.start + 1 .. self.current - 1];
         try self.addToken(Type.STRING, _tokens.Literal{ .string = value });
     }
 
@@ -215,7 +215,7 @@ pub const Lexxer = struct {
         return self.current >= self.source_code.len;
     }
 
-    pub fn scanTokens(self: *Lexxer, source_code: []u8) !std.ArrayList(Token) {
+    pub fn scanTokens(self: *Lexxer, source_code: []const u8) !std.ArrayList(Token) {
         self.source_code = source_code;
         while (!self.isAtEnd()) {
             // We are at the beginning of the next lexeme.
