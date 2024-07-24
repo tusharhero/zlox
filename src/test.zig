@@ -181,3 +181,18 @@ test "for loop" {
     ;
     try std.testing.expect(try test_program(code, expected_ouput));
 }
+
+test "and, or" {
+    const code =
+        \\print 1 and 1;
+        \\print true and false;
+        \\print false or true;
+    ;
+    const expected_ouput =
+        \\1
+        \\false
+        \\true
+        \\
+    ;
+    try std.testing.expect(try test_program(code, expected_ouput));
+}
