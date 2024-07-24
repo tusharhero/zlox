@@ -137,35 +137,46 @@ pub const Parser = struct {
 
         _ = try self.consume(Type.LEFT_PAREN, "Expect '(' after 'for'.");
 
-        var initializer: ?*ast.Stmt = undefined;
-        if (self.match(.{Type.SEMICOLON}))
-            initializer = null
-        else if (self.match(.{Type.VAR}))
-            initializer = try self.varDeclaration()
-        else
-            initializer = try self.expressionStatement();
+        const initializer: ?*ast.Stmt = switch (self.peek()._type) {
+            Type.SEMICOLON => b: {
+                _ = self.advance();
+                break :b null;
+            },
+            Type.VAR => b: {
+                _ = self.advance();
+                break :b try self.varDeclaration();
+            },
+            else => try self.expressionStatement(),
+        };
 
-        var condition: *ast.Expr = undefined;
-        if (!self.match(.{Type.SEMICOLON})) {
-            condition = try self.expression();
-            _ = try self.consume(Type.SEMICOLON, "Expect ';' after loop condition.");
-        } else {
-            condition = try allocator.create(ast.Expr);
-            condition.* = ast.Expr{
-                .literal = ast.Literal{
-                    .value = _tokens.Literal{ .boolean = true },
-                },
-            };
-        }
+        const condition = switch (self.match(.{Type.SEMICOLON})) {
+            true => b: {
+                const condition = try allocator.create(ast.Expr);
+                condition.* = ast.Expr{
+                    .literal = ast.Literal{
+                        .value = _tokens.Literal{ .boolean = true },
+                    },
+                };
+                break :b condition;
+            },
+            false => b: {
+                const condition = try self.expression();
+                _ = try self.consume(Type.SEMICOLON, "Expect ';' after loop condition.");
+                break :b condition;
+            },
+        };
 
-        var increment: ?*ast.Stmt = undefined;
-        if (!self.match(.{Type.RIGHT_PAREN})) {
-            const expr = try self.expression();
-            increment = try allocator.create(ast.Stmt);
-            increment.?.* = ast.Stmt{
-                .expression = expr,
-            };
-        } else increment = null;
+        const increment: ?*ast.Stmt = switch (self.match(.{Type.RIGHT_PAREN})) {
+            true => null,
+            false => b: {
+                const expr = try self.expression();
+                const increment = try allocator.create(ast.Stmt);
+                increment.* = ast.Stmt{
+                    .expression = expr,
+                };
+                break :b increment;
+            },
+        };
 
         _ = try self.consume(Type.RIGHT_PAREN, "Expect ')' after for clauses.");
 
