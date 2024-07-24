@@ -443,7 +443,52 @@ pub const Parser = struct {
             } };
             return expr;
         }
-        return self.primary();
+        return self.call();
+    }
+
+    fn call(self: *Parser) !*ast.Expr {
+        const callee = try self.primary();
+        var arguments_: ?std.ArrayList(ast.Expr) = null;
+        var paren: ?Token = null;
+        if (self.match(.{Type.LEFT_PAREN})) {
+            paren = self.previous();
+            arguments_ = try self.arguments();
+            _ = try self.consume(
+                Type.RIGHT_PAREN,
+                "Expected ')' after arguments.",
+            );
+        }
+        if (arguments_ != null and paren != null) {
+            const call_ = try self.arena.allocator().create(ast.Expr);
+            call_.* = ast.Expr{
+                .call = ast.Call{
+                    .callee = callee,
+                    .paren = paren.?,
+                    .arguments = arguments_.?,
+                },
+            };
+
+            return call_;
+        } else {
+            const call_ = callee;
+            return call_;
+        }
+    }
+
+    fn arguments(self: *Parser) !std.ArrayList(ast.Expr) {
+        const first_expr = try self.expression();
+        var expr_list = std.ArrayList(ast.Expr)
+            .init(self.arena.allocator());
+        try expr_list.append(first_expr.*);
+        while (self.match(.{Type.COMMA})) {
+            if (expr_list.items.len >= 255) try self._error(
+                self.peek(),
+                "Can't have more than 255 arguments.",
+            );
+            const expr = try self.expression();
+            try expr_list.append(expr.*);
+        }
+        return expr_list;
     }
 
     fn primary(self: *Parser) !*ast.Expr {

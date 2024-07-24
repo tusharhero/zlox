@@ -29,6 +29,7 @@ pub const Expr = union(enum) {
     variable: Variable,
     assignment: Assignment,
     logical: Binary,
+    call: Call,
 };
 
 pub const Binary = struct {
@@ -52,6 +53,11 @@ pub const Variable = struct {
 pub const Assignment = struct {
     name: Token,
     value: *const Expr,
+};
+pub const Call = struct {
+    callee: *const Expr,
+    paren: Token,
+    arguments: std.ArrayList(Expr),
 };
 
 pub const Stmt = union(enum) {
