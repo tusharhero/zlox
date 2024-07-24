@@ -97,14 +97,14 @@ fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
     };
     defer allocator.free(source_code);
 
-    var interpreter = Interpreter.init(allocator, stdout);
+    var interpreter = Interpreter.init(allocator, .{ .file = stdout });
     defer interpreter.deinit();
 
     try run(allocator, source_code, &interpreter);
 }
 
 fn runPrompt(allocator: std.mem.Allocator) !void {
-    var interpreter = Interpreter.init(allocator, stdout);
+    var interpreter = Interpreter.init(allocator, .{ .file = stdout });
     defer interpreter.deinit();
     while (b: {
         try stdout.print("> ", .{});

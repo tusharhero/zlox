@@ -39,6 +39,17 @@ const Error = error{
     RuntimeError,
 };
 
+const Writer = union(enum) {
+    file: std.fs.File.Writer,
+    arraylist: std.ArrayList(u8).Writer,
+    pub fn print(self: Writer, comptime format: []const u8, args: anytype) !void {
+        try switch (self) {
+            .file => |file| file.print(format, args),
+            .arraylist => |arraylist| arraylist.print(format, args),
+        };
+    }
+};
+
 pub const Env = struct {
     values: std.StringArrayHashMap(Object),
     enclosing_environment: ?*Env,
@@ -105,12 +116,12 @@ pub const Env = struct {
 pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
     environment: Env,
-    writer: std.fs.File.Writer,
+    writer: Writer,
 
     const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
-    pub fn init(allocator: std.mem.Allocator, writer: std.fs.File.Writer) Interpreter {
+    pub fn init(allocator: std.mem.Allocator, writer: Writer) Interpreter {
         return Interpreter{
             .arena = std.heap.ArenaAllocator.init(
                 std.heap.page_allocator,
