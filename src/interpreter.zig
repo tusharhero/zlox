@@ -105,16 +105,18 @@ pub const Env = struct {
 pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
     environment: Env,
+    writer: std.fs.File.Writer,
 
     const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
-    pub fn init(allocator: std.mem.Allocator) Interpreter {
+    pub fn init(allocator: std.mem.Allocator, writer: std.fs.File.Writer) Interpreter {
         return Interpreter{
             .arena = std.heap.ArenaAllocator.init(
                 std.heap.page_allocator,
             ),
             .environment = Env.init(allocator, null),
+            .writer = writer,
         };
     }
 
@@ -287,7 +289,7 @@ pub const Interpreter = struct {
 
     fn printStatement(self: *Interpreter, stmt: *const ast.Stmt) !void {
         const value = try self.evaluate(stmt.print);
-        try main.stdout.print("{!s}\n", .{self.stringify(value)});
+        try self.writer.print("{!s}\n", .{self.stringify(value)});
     }
     fn varStatement(self: *Interpreter, stmt: ast.VarDecl) !void {
         var value: Object = Object{ .nil = null };
