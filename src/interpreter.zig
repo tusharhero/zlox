@@ -306,6 +306,13 @@ pub const Interpreter = struct {
 
     fn evalCall(self: *Interpreter, expression: ast.Call) !Object {
         const callee = try self.evaluate(expression.callee);
+        switch (callee) {
+            .callable => {},
+            else => {
+                try _error(expression.paren, "Only call functions and classes.");
+                return Error.RuntimeError;
+            },
+        }
         var arguments: ?std.ArrayList(Object) = null;
         const no_of_args = if (expression.arguments != null)
             expression.arguments.?.items.len
