@@ -120,7 +120,14 @@ pub const Callable = struct {
     toString: *const fn () []const u8,
 };
 
-const clock = struct {
+const Clock = struct {
+    pub fn init() Callable {
+        return Callable{
+            .arity = arity,
+            .call = call,
+            .toString = toString,
+        };
+    }
     fn arity() u8 {
         return 0;
     }
@@ -155,11 +162,7 @@ pub const Interpreter = struct {
         try global.define(
             "clock",
             .{
-                .callable = Callable{
-                    .arity = clock.arity,
-                    .call = clock.call,
-                    .toString = clock.toString,
-                },
+                .callable = Clock.init(),
             },
         );
 
