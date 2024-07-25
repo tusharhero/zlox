@@ -37,7 +37,7 @@ fn test_program(source: []const u8, expected_output: []const u8) !bool {
     var parser = try Parser.init();
     defer parser.deinit();
 
-    var interpreter = Interpreter.init(
+    var interpreter = try Interpreter.init(
         test_allocator,
         .{ .arraylist = writer },
     );

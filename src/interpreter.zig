@@ -27,6 +27,7 @@ const Object = union(enum) {
     boolean: bool,
     number: f64,
     string: []const u8,
+    callable: Callable,
 };
 
 fn _error(token: Token, message: []const u8) !void {
@@ -113,25 +114,69 @@ pub const Env = struct {
         }
     }
 };
+pub const Callable = struct {
+    arity: *const fn () u8,
+    call: *const fn (interpreter: *Interpreter, arguments: ?std.ArrayList(Object)) Object,
+    toString: *const fn () []const u8,
+};
+
+const clock = struct {
+    fn arity() u8 {
+        return 0;
+    }
+    fn call(
+        interpreter: *Interpreter,
+        arguments: ?std.ArrayList(Object),
+    ) Object {
+        _ = interpreter;
+        _ = arguments;
+        return .{
+            .number = @floatFromInt(std.time.timestamp()),
+        };
+    }
+    fn toString() []const u8 {
+        return "<native fn: clock>";
+    }
+};
+
 pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
+    manual_allocator: std.mem.Allocator,
     environment: Env,
+    global: *Env,
     writer: Writer,
 
     const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
-    pub fn init(allocator: std.mem.Allocator, writer: Writer) Interpreter {
+    pub fn init(allocator: std.mem.Allocator, writer: Writer) !Interpreter {
+        const global = try allocator.create(Env);
+        global.* = Env.init(allocator, null);
+        try global.define(
+            "clock",
+            .{
+                .callable = Callable{
+                    .arity = clock.arity,
+                    .call = clock.call,
+                    .toString = clock.toString,
+                },
+            },
+        );
+
         return Interpreter{
             .arena = std.heap.ArenaAllocator.init(
                 std.heap.page_allocator,
             ),
-            .environment = Env.init(allocator, null),
+            .manual_allocator = allocator,
+            .environment = Env.init(allocator, global),
+            .global = global,
             .writer = writer,
         };
     }
 
     pub fn deinit(self: *Interpreter) void {
+        self.global.deinit();
+        self.manual_allocator.destroy(self.global);
         self.environment.deinit();
         self.arena.deinit();
     }
@@ -259,6 +304,27 @@ pub const Interpreter = struct {
         return self.evaluate(expression.right);
     }
 
+    fn evalCall(self: *Interpreter, expression: ast.Call) !Object {
+        const callee = try self.evaluate(expression.callee);
+        var arguments: ?std.ArrayList(Object) = null;
+        const no_of_args = if (expression.arguments != null)
+            expression.arguments.?.items.len
+        else
+            0;
+        if (expression.arguments != null) {
+            arguments = std.ArrayList(Object).init(self.arena.allocator());
+            for (expression.arguments.?.items) |argument| {
+                try arguments.?.append(try self.evaluate(&argument));
+            }
+        }
+        const function: Object = callee;
+        if (no_of_args != function.callable.arity()) {
+            try _error(expression.paren, "Incorrect number of arguments.");
+            return Error.RuntimeError;
+        }
+        return function.callable.call(self, arguments);
+    }
+
     fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
         return switch (expression.*) {
             .literal => |literal| {
@@ -275,6 +341,7 @@ pub const Interpreter = struct {
             .variable => |variable| self.environment.get(variable.name),
             .assignment => |assignment| self.evalAssignment(assignment),
             .logical => |logical| self.evalLogical(logical),
+            .call => |call| self.evalCall(call),
         };
     }
 
@@ -291,6 +358,7 @@ pub const Interpreter = struct {
                 true => "true",
                 false => "false",
             },
+            .callable => |callable| callable.toString(),
         };
     }
 
