@@ -432,8 +432,8 @@ pub const Parser = struct {
 
     fn call(self: *Parser) !*ast.Expr {
         const callee = try self.primary();
-        var arguments_: ?std.ArrayList(ast.Expr) = null;
         var paren: ?Token = null;
+        var arguments_: ?std.ArrayList(ast.Expr) = null;
         if (self.match(.{Type.LEFT_PAREN})) {
             paren = self.previous();
             arguments_ = try self.arguments();
@@ -442,24 +442,20 @@ pub const Parser = struct {
                 "Expected ')' after arguments.",
             );
         }
-        if (arguments_ != null and paren != null) {
-            const call_ = try self.arena.allocator().create(ast.Expr);
-            call_.* = ast.Expr{
-                .call = ast.Call{
-                    .callee = callee,
-                    .paren = paren.?,
-                    .arguments = arguments_.?,
-                },
-            };
-
-            return call_;
-        } else {
-            const call_ = callee;
-            return call_;
-        }
+        if (paren == null) return callee;
+        const expr = try self.arena.allocator().create(ast.Expr);
+        expr.* = ast.Expr{
+            .call = ast.Call{
+                .callee = callee,
+                .arguments = arguments_,
+                .paren = paren.?,
+            },
+        };
+        return expr;
     }
 
-    fn arguments(self: *Parser) !std.ArrayList(ast.Expr) {
+    fn arguments(self: *Parser) !?std.ArrayList(ast.Expr) {
+        if (self.check(Type.RIGHT_PAREN)) return null;
         const first_expr = try self.expression();
         var expr_list = std.ArrayList(ast.Expr)
             .init(self.arena.allocator());

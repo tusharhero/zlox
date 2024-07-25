@@ -57,7 +57,7 @@ pub const Assignment = struct {
 pub const Call = struct {
     callee: *const Expr,
     paren: Token,
-    arguments: std.ArrayList(Expr),
+    arguments: ?std.ArrayList(Expr),
 };
 
 pub const Stmt = union(enum) {
