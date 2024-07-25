@@ -287,23 +287,7 @@ pub const Parser = struct {
     }
 
     fn expression(self: *Parser) Errors!*ast.Expr {
-        return try self.comma();
-    }
-
-    fn comma(self: *Parser) !*ast.Expr {
-        var expr = try self.assignment();
-        while (self.match(.{Type.COMMA})) {
-            const operator: Token = self.previous();
-            const compound_expr = try self.arena.allocator().create(ast.Expr);
-            const right = try self.assignment();
-            compound_expr.* = ast.Expr{ .binary = ast.Binary{
-                .left = expr,
-                .operator = operator,
-                .right = right,
-            } };
-            expr = compound_expr;
-        }
-        return expr;
+        return try self.assignment();
     }
 
     fn assignment(self: *Parser) !*ast.Expr {
