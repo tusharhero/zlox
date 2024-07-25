@@ -67,6 +67,7 @@ pub const Stmt = union(enum) {
     block: Block,
     _if: IfStmt,
     _while: WhileStmt,
+    function: FunDecl,
 };
 pub const VarDecl = struct {
     name: Token,
@@ -83,6 +84,11 @@ pub const IfStmt = struct {
 pub const WhileStmt = struct {
     condition: *const Expr,
     body: *const Stmt,
+};
+pub const FunDecl = struct {
+    name: Token,
+    parameters: ?std.ArrayList(Token),
+    body: std.ArrayList(Stmt),
 };
 
 pub const Printer = struct {

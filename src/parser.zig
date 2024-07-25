@@ -102,6 +102,7 @@ pub const Parser = struct {
 
     fn declaration(self: *Parser) !*ast.Stmt {
         if (self.match(.{Type.VAR})) return self.varDeclaration();
+        if (self.match(.{Type.FUN})) return self.funDeclaration();
         return self.statement();
     }
 
@@ -120,6 +121,40 @@ pub const Parser = struct {
             },
         };
         return variable_declaration;
+    }
+
+    fn funDeclaration(self: *Parser) !*ast.Stmt {
+        const name = try self.consume(Type.IDENTIFIER, "Expect function name.");
+        _ = try self.consume(Type.LEFT_PAREN, "Expect function name.");
+        const parameters_ = try self.parameters();
+        _ = try self.consume(Type.RIGHT_PAREN, "Expect ')' after parameters.");
+        _ = try self.consume(Type.LEFT_BRACE, "Expect '{' before function body.");
+        const body = try self.blockStatement();
+        const function = try self.arena.allocator().create(ast.Stmt);
+        function.* = .{
+            .function = .{
+                .name = name,
+                .parameters = parameters_,
+                .body = body.block.statements,
+            },
+        };
+        return function;
+    }
+
+    fn parameters(self: *Parser) !?std.ArrayList(Token) {
+        if (self.check(Type.RIGHT_PAREN)) return null;
+        var parameters_list = std.ArrayList(Token).init(self.arena.allocator());
+        const first_parameter = try self.consume(Type.IDENTIFIER, "Expect parameter name.");
+        try parameters_list.append(first_parameter);
+        while (self.match(.{Type.COMMA})) {
+            if (parameters_list.items.len >= 255) try self._error(
+                self.peek(),
+                "Can't have more than 255 parameters.",
+            );
+            const parameter = try self.consume(Type.IDENTIFIER, "Expect parameter name.");
+            try parameters_list.append(parameter);
+        }
+        return parameters_list;
     }
 
     fn statement(self: *Parser) !*ast.Stmt {
