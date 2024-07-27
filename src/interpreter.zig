@@ -115,23 +115,26 @@ pub const Env = struct {
     }
 };
 pub const Callable = struct {
-    arity: *const fn () u8,
-    call: *const fn (interpreter: *Interpreter, arguments: ?std.ArrayList(Object)) Object,
-    toString: *const fn () []const u8,
+    data: *anyopaque,
+    arity: *const fn (data: *anyopaque) u8,
+    call: *const fn (data: *anyopaque, interpreter: *Interpreter, arguments: ?std.ArrayList(Object)) Object,
+    toString: *const fn (data: *anyopaque) []const u8,
 };
 
 const Clock = struct {
     pub fn init() Callable {
         return Callable{
+            .data = undefined,
             .arity = arity,
             .call = call,
             .toString = toString,
         };
     }
-    fn arity() u8 {
+    fn arity(_: *anyopaque) u8 {
         return 0;
     }
     fn call(
+        _: *anyopaque,
         interpreter: *Interpreter,
         arguments: ?std.ArrayList(Object),
     ) Object {
@@ -141,7 +144,7 @@ const Clock = struct {
             .number = @floatFromInt(std.time.timestamp()),
         };
     }
-    fn toString() []const u8 {
+    fn toString(_: *anyopaque) []const u8 {
         return "<native fn: clock>";
     }
 };
@@ -328,11 +331,12 @@ pub const Interpreter = struct {
             }
         }
         const function: Object = callee;
-        if (no_of_args != function.callable.arity()) {
+        const data = function.callable.data;
+        if (no_of_args != function.callable.arity(data)) {
             try _error(expression.paren, "Incorrect number of arguments.");
             return Error.RuntimeError;
         }
-        return function.callable.call(self, arguments);
+        return function.callable.call(data, self, arguments);
     }
 
     fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
@@ -368,7 +372,7 @@ pub const Interpreter = struct {
                 true => "true",
                 false => "false",
             },
-            .callable => |callable| callable.toString(),
+            .callable => |callable| callable.toString(callable.data),
         };
     }
 
