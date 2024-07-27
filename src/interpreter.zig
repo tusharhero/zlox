@@ -476,6 +476,7 @@ pub const Interpreter = struct {
             ._if => |_if| self.ifStatement(_if),
             ._while => |_while| self.whileStatement(_while),
             .function => |fun| self.funStatement(fun),
+            ._return => {},
         };
     }
 

@@ -68,6 +68,7 @@ pub const Stmt = union(enum) {
     _if: IfStmt,
     _while: WhileStmt,
     function: FunDecl,
+    _return: ReturnStmt,
 };
 pub const VarDecl = struct {
     name: Token,
@@ -89,6 +90,10 @@ pub const FunDecl = struct {
     name: Token,
     parameters: ?std.ArrayList(Token),
     body: std.ArrayList(Stmt),
+};
+pub const ReturnStmt = struct {
+    keyword: Token,
+    value: ?*const Expr,
 };
 
 pub const Printer = struct {

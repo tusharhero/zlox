@@ -162,6 +162,7 @@ pub const Parser = struct {
         if (self.match(.{Type.WHILE})) return self.whileStatement();
         if (self.match(.{Type.IF})) return self.ifStatement();
         if (self.match(.{Type.PRINT})) return self.printStatement();
+        if (self.match(.{Type.RETURN})) return self.returnStatement();
         if (self.match(.{Type.LEFT_BRACE})) return self.blockStatement();
         return self.expressionStatement();
     }
@@ -290,6 +291,20 @@ pub const Parser = struct {
         const stmt = try self.arena.allocator().create(ast.Stmt);
         stmt.* = ast.Stmt{
             .print = value,
+        };
+        return stmt;
+    }
+
+    fn returnStatement(self: *Parser) !*ast.Stmt {
+        const keyword = self.previous();
+        const value: ?*ast.Expr = if (!self.check(Type.SEMICOLON)) try self.expression() else null;
+        _ = try self.consume(Type.SEMICOLON, "Expect ';' after return value.");
+        const stmt = try self.arena.allocator().create(ast.Stmt);
+        stmt.* = ast.Stmt{
+            ._return = .{
+                .keyword = keyword,
+                .value = value,
+            },
         };
         return stmt;
     }
