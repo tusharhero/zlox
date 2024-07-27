@@ -196,3 +196,18 @@ test "and, or" {
     ;
     try std.testing.expect(try test_program(code, expected_ouput));
 }
+
+test "functions" {
+    const code =
+        \\fun hello() {
+        \\  print "Hello World!";
+        \\}
+        \\hello();
+        \\
+    ;
+    const expected_ouput =
+        \\Hello World!
+        \\
+    ;
+    try std.testing.expect(try test_program(code, expected_ouput));
+}

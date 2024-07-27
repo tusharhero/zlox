@@ -39,6 +39,7 @@ fn _error(token: Token, message: []const u8) !void {
 const Error = error{
     RuntimeError,
 };
+const Errors = Error || main.Errors;
 
 const Writer = union(enum) {
     file: std.fs.File.Writer,
@@ -117,7 +118,7 @@ pub const Env = struct {
 pub const Callable = struct {
     data: *anyopaque,
     arity: *const fn (data: *anyopaque) u8,
-    call: *const fn (data: *anyopaque, interpreter: *Interpreter, arguments: ?std.ArrayList(Object)) Object,
+    call: *const fn (data: *anyopaque, interpreter: *Interpreter, arguments: ?std.ArrayList(Object)) Errors!Object,
     toString: *const fn (data: *anyopaque) []const u8,
 };
 
@@ -137,7 +138,7 @@ const Clock = struct {
         _: *anyopaque,
         interpreter: *Interpreter,
         arguments: ?std.ArrayList(Object),
-    ) Object {
+    ) Errors!Object {
         _ = interpreter;
         _ = arguments;
         return .{
@@ -149,14 +150,54 @@ const Clock = struct {
     }
 };
 
+const Function = struct {
+    allocator: std.mem.Allocator,
+    declaration: ast.FunDecl,
+    pub fn init(self: *Function) Callable {
+        return Callable{
+            .data = self,
+            .arity = arity,
+            .call = call,
+            .toString = toString,
+        };
+    }
+    fn arity(data: *anyopaque) u8 {
+        const self: *Function = @ptrCast(@alignCast(data));
+        const parameters = self.declaration.parameters;
+        return if (parameters != null)
+            @intCast(parameters.?.items.len)
+        else
+            0;
+    }
+    fn call(
+        data: *anyopaque,
+        interpreter: *Interpreter,
+        arguments: ?std.ArrayList(Object),
+    ) Errors!Object {
+        const self: *Function = @ptrCast(@alignCast(data));
+        const declaration: ast.FunDecl = self.declaration;
+        const allocator: std.mem.Allocator = self.allocator;
+        var env = Env.init(allocator, interpreter.global);
+        if (arguments != null and declaration.parameters != null)
+            for (arguments.?.items, declaration.parameters.?.items) |argument, parameter| {
+                try env.define(parameter.lexeme, argument);
+            };
+
+        try interpreter.executeBlock(.{ .statements = declaration.body }, env);
+
+        return Object{ .nil = null };
+    }
+    fn toString(_: *anyopaque) []const u8 {
+        return "<userdefined fn: >";
+    }
+};
+
 pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
     manual_allocator: std.mem.Allocator,
     environment: Env,
     global: *Env,
     writer: Writer,
-
-    const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
     pub fn init(allocator: std.mem.Allocator, writer: Writer) !Interpreter {
@@ -414,6 +455,18 @@ pub const Interpreter = struct {
             try self.execute(statement.body);
     }
 
+    fn funStatement(self: *Interpreter, statement: ast.FunDecl) Errors!void {
+        var function = Function{
+            .allocator = self.arena.allocator(),
+            .declaration = statement,
+        };
+        const callable = function.init();
+        try self.environment.define(
+            statement.name.lexeme,
+            .{ .callable = callable },
+        );
+    }
+
     fn execute(self: *Interpreter, statement: *const ast.Stmt) !void {
         try switch (statement.*) {
             .expression => self.expressionStatement(statement),
@@ -422,7 +475,19 @@ pub const Interpreter = struct {
             .block => |block| self.blockStatement(block),
             ._if => |_if| self.ifStatement(_if),
             ._while => |_while| self.whileStatement(_while),
+            .function => |fun| self.funStatement(fun),
         };
+    }
+
+    fn executeBlock(self: *Interpreter, block: ast.Block, environment: Env) Errors!void {
+        const allocator = self.arena.allocator();
+        const prev = try allocator.create(Env);
+        prev.* = self.environment;
+        self.environment = environment;
+        for (block.statements.items) |statement| {
+            try self.execute(&statement);
+        }
+        self.environment = prev.*;
     }
 
     pub fn interpret(self: *Interpreter, statements: std.ArrayList(*ast.Stmt)) !void {
