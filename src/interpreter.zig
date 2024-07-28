@@ -453,13 +453,14 @@ pub const Interpreter = struct {
     }
     fn blockStatement(self: *Interpreter, block: ast.Block) Errors!void {
         const allocator = self.arena.allocator();
-        const prev = try allocator.create(Env);
-        prev.* = self.environment;
-        self.environment = Env.init(allocator, prev);
+        const parent = self.environment;
+        const child = try allocator.create(Env);
+        child.* = Env.init(allocator, self.environment);
+        self.environment = child;
+        defer self.environment = parent;
         for (block.statements.items) |statement| {
             try self.execute(&statement);
         }
-        self.environment = prev.*;
     }
 
     fn ifStatement(self: *Interpreter, statement: ast.IfStmt) Errors!void {
