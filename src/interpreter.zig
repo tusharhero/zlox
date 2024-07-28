@@ -175,15 +175,31 @@ const Function = struct {
         arguments: ?std.ArrayList(Object),
     ) Errors!Object {
         const self: *Function = @ptrCast(@alignCast(data));
-        const declaration: ast.FunDecl = self.declaration;
-        const allocator: std.mem.Allocator = self.allocator;
-        var env = Env.init(allocator, interpreter.global);
+        const declaration = self.declaration;
+        const allocator = self.allocator;
+
+        const parent_env = interpreter.environment;
+        const child_env = try allocator.create(Env);
+        child_env.* = Env.init(allocator, parent_env);
+        interpreter.environment = child_env;
+        defer interpreter.environment = parent_env;
+
         if (arguments != null and declaration.parameters != null)
             for (arguments.?.items, declaration.parameters.?.items) |argument, parameter| {
-                try env.define(parameter.lexeme, argument);
+                try interpreter.environment.define(parameter.lexeme, argument);
             };
 
-        try interpreter.executeBlock(.{ .statements = declaration.body }, env);
+        for (declaration.body.items) |statement| {
+            switch (statement) {
+                ._return => |_return| {
+                    if (_return.value != null)
+                        return try interpreter.evaluate(_return.value.?)
+                    else
+                        break;
+                },
+                else => try interpreter.execute(&statement),
+            }
+        }
 
         return Object{ .nil = null };
     }
@@ -195,7 +211,7 @@ const Function = struct {
 pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
     manual_allocator: std.mem.Allocator,
-    environment: Env,
+    environment: *Env,
     global: *Env,
     writer: Writer,
 
@@ -210,12 +226,15 @@ pub const Interpreter = struct {
             },
         );
 
+        const environment = try allocator.create(Env);
+        environment.* = Env.init(allocator, global);
+
         return Interpreter{
             .arena = std.heap.ArenaAllocator.init(
                 std.heap.page_allocator,
             ),
             .manual_allocator = allocator,
-            .environment = Env.init(allocator, global),
+            .environment = environment,
             .global = global,
             .writer = writer,
         };
@@ -225,6 +244,7 @@ pub const Interpreter = struct {
         self.global.deinit();
         self.manual_allocator.destroy(self.global);
         self.environment.deinit();
+        self.manual_allocator.destroy(self.environment);
         self.arena.deinit();
     }
 
@@ -377,7 +397,7 @@ pub const Interpreter = struct {
             try _error(expression.paren, "Incorrect number of arguments.");
             return Error.RuntimeError;
         }
-        return function.callable.call(data, self, arguments);
+        return try function.callable.call(data, self, arguments);
     }
 
     fn evaluate(self: *Interpreter, expression: *const ast.Expr) Errors!Object {
@@ -456,7 +476,8 @@ pub const Interpreter = struct {
     }
 
     fn funStatement(self: *Interpreter, statement: ast.FunDecl) Errors!void {
-        var function = Function{
+        const function = try self.arena.allocator().create(Function);
+        function.* = Function{
             .allocator = self.arena.allocator(),
             .declaration = statement,
         };
@@ -476,19 +497,8 @@ pub const Interpreter = struct {
             ._if => |_if| self.ifStatement(_if),
             ._while => |_while| self.whileStatement(_while),
             .function => |fun| self.funStatement(fun),
-            ._return => {},
+            ._return => {}, // Returns are handled by functions. See Function.call.
         };
-    }
-
-    fn executeBlock(self: *Interpreter, block: ast.Block, environment: Env) Errors!void {
-        const allocator = self.arena.allocator();
-        const prev = try allocator.create(Env);
-        prev.* = self.environment;
-        self.environment = environment;
-        for (block.statements.items) |statement| {
-            try self.execute(&statement);
-        }
-        self.environment = prev.*;
     }
 
     pub fn interpret(self: *Interpreter, statements: std.ArrayList(*ast.Stmt)) !void {
