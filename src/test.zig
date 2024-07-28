@@ -50,6 +50,17 @@ fn test_program(source: []const u8, expected_output: []const u8) !bool {
     return std.mem.eql(u8, output.items, expected_output);
 }
 
+test "printing" {
+    const code =
+        \\print 2;
+    ;
+    const expected_ouput =
+        \\2
+        \\
+    ;
+    try std.testing.expect(try test_program(code, expected_ouput));
+}
+
 test "var, printing" {
     const code =
         \\var a = 1+1;
