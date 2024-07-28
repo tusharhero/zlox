@@ -237,3 +237,19 @@ test "functions return" {
     ;
     try std.testing.expect(try test_program(code, expected_ouput));
 }
+
+test "simple recursion" {
+    const code =
+        \\fun add(a,b,c) {
+        \\  if (c == 0) return a + b;
+        \\  return add(a,b,0) + c;
+        \\}
+        \\print add(1,2,3);
+        \\
+    ;
+    const expected_ouput =
+        \\6
+        \\
+    ;
+    try std.testing.expect(try test_program(code, expected_ouput));
+}
