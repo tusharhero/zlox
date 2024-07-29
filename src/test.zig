@@ -275,3 +275,24 @@ test "fibonacci recursion" {
     ;
     try std.testing.expect(try test_program(code, expected_ouput));
 }
+test "closures" {
+    const code =
+        \\fun makeCounter() {
+        \\  var i = 0;
+        \\  fun count() {
+        \\    i = i + 1;
+        \\    print i;
+        \\  }
+        \\  return count;
+        \\}
+        \\var counter = makeCounter();
+        \\counter();
+        \\counter();
+    ;
+    const expected_ouput =
+        \\1
+        \\2
+        \\
+    ;
+    try std.testing.expect(try test_program(code, expected_ouput));
+}
