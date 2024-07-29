@@ -253,3 +253,25 @@ test "simple recursion" {
     ;
     try std.testing.expect(try test_program(code, expected_ouput));
 }
+
+test "fibonacci recursion" {
+    const code =
+        \\fun fibonacci(n){
+        \\   if (n <= 0){
+        \\       return 1;
+        \\   } else {
+        \\      return fibonacci(n-1) + fibonacci(n-2);
+        \\   }
+        \\}
+        \\for (var i = 0; i < 5; i = i + 1) print fibonacci(i);
+    ;
+    const expected_ouput =
+        \\1
+        \\2
+        \\3
+        \\5
+        \\8
+        \\
+    ;
+    try std.testing.expect(try test_program(code, expected_ouput));
+}
