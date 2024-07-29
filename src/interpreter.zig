@@ -153,6 +153,7 @@ const Clock = struct {
 const Function = struct {
     allocator: std.mem.Allocator,
     declaration: ast.FunDecl,
+    closure: *Env,
     pub fn init(self: *Function) Callable {
         return Callable{
             .data = self,
@@ -178,11 +179,12 @@ const Function = struct {
         const declaration = self.declaration;
         const allocator = self.allocator;
 
-        const parent_env = interpreter.environment;
+        const call_env = interpreter.environment;
+        const closure_env = self.closure;
         const child_env = try allocator.create(Env);
-        child_env.* = Env.init(allocator, parent_env);
+        child_env.* = Env.init(allocator, closure_env);
         interpreter.environment = child_env;
-        defer interpreter.environment = parent_env;
+        defer interpreter.environment = call_env;
 
         if (arguments != null and declaration.parameters != null)
             for (arguments.?.items, declaration.parameters.?.items) |argument, parameter| {
@@ -483,6 +485,7 @@ pub const Interpreter = struct {
         function.* = Function{
             .allocator = self.arena.allocator(),
             .declaration = statement,
+            .closure = self.environment,
         };
         const callable = function.init();
         try self.environment.define(
