@@ -190,15 +190,8 @@ const Function = struct {
             };
 
         for (declaration.body.items) |statement| {
-            switch (statement) {
-                ._return => |_return| {
-                    if (_return.value != null)
-                        return try interpreter.evaluate(_return.value.?)
-                    else
-                        break;
-                },
-                else => try interpreter.execute(&statement),
-            }
+            const return_value = try interpreter.execute(&statement);
+            if (return_value) |val| return val;
         }
 
         return Object{ .nil = null };
@@ -451,7 +444,7 @@ pub const Interpreter = struct {
             value = try self.evaluate(stmt.intializer.?);
         try self.environment.define(stmt.name.lexeme, value);
     }
-    fn blockStatement(self: *Interpreter, block: ast.Block) Errors!void {
+    fn blockStatement(self: *Interpreter, block: ast.Block) Errors!?Object {
         const allocator = self.arena.allocator();
         const parent = self.environment;
         const child = try allocator.create(Env);
@@ -459,21 +452,30 @@ pub const Interpreter = struct {
         self.environment = child;
         defer self.environment = parent;
         for (block.statements.items) |statement| {
-            try self.execute(&statement);
+            const return_value = try self.execute(&statement);
+            if (return_value) |val| return val;
         }
+        return null;
     }
 
-    fn ifStatement(self: *Interpreter, statement: ast.IfStmt) Errors!void {
+    fn ifStatement(self: *Interpreter, statement: ast.IfStmt) Errors!?Object {
         const truthy = self.truthVal(try self.evaluate(statement.condition));
-        if (truthy)
-            try self.execute(statement.thenBranch)
-        else if (statement.elseBranch != null)
-            try self.execute(statement.elseBranch.?);
+        if (truthy) {
+            const return_value = try self.execute(statement.thenBranch);
+            if (return_value) |val| return val;
+        } else if (statement.elseBranch != null) {
+            const return_value = try self.execute(statement.elseBranch.?);
+            if (return_value) |val| return val;
+        }
+        return null;
     }
 
-    fn whileStatement(self: *Interpreter, statement: ast.WhileStmt) Errors!void {
-        while (self.truthVal(try self.evaluate(statement.condition)))
-            try self.execute(statement.body);
+    fn whileStatement(self: *Interpreter, statement: ast.WhileStmt) Errors!?Object {
+        while (self.truthVal(try self.evaluate(statement.condition))) {
+            const return_value = try self.execute(statement.body);
+            if (return_value) |val| return val;
+        }
+        return null;
     }
 
     fn funStatement(self: *Interpreter, statement: ast.FunDecl) Errors!void {
@@ -489,22 +491,30 @@ pub const Interpreter = struct {
         );
     }
 
-    fn execute(self: *Interpreter, statement: *const ast.Stmt) !void {
+    fn returnStatement(self: *Interpreter, statement: ast.ReturnStmt) Errors!Object {
+        return if (statement.value) |val|
+            try self.evaluate(val)
+        else
+            .{ .nil = null };
+    }
+
+    fn execute(self: *Interpreter, statement: *const ast.Stmt) !?Object {
         try switch (statement.*) {
             .expression => self.expressionStatement(statement),
             .print => self.printStatement(statement),
             .variable => |_var| self.varStatement(_var),
-            .block => |block| self.blockStatement(block),
-            ._if => |_if| self.ifStatement(_if),
-            ._while => |_while| self.whileStatement(_while),
+            .block => |block| return try self.blockStatement(block),
+            ._if => |_if| return try self.ifStatement(_if),
+            ._while => |_while| return try self.whileStatement(_while),
             .function => |fun| self.funStatement(fun),
-            ._return => @panic("Return should have been handled by Function.call."),
+            ._return => |_return| return try self.returnStatement(_return),
         };
+        return null;
     }
 
     pub fn interpret(self: *Interpreter, statements: std.ArrayList(*ast.Stmt)) !void {
         for (statements.items) |statement| {
-            try self.execute(statement);
+            _ = try self.execute(statement);
         }
     }
 };
