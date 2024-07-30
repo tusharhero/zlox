@@ -24,47 +24,38 @@ const Type = _tokens.TokenType;
 pub const Lexxer = struct {
     source_code: []const u8,
     tokens: std.ArrayList(Token),
-    keywords: std.StringArrayHashMap(Type),
 
-    start: u64,
-    current: u64,
-    line: u64,
+    start: u64 = 0,
+    current: u64 = 0,
+    line: u64 = 1,
+
+    const keywords = std.StaticStringMap(Type).initComptime(.{
+        .{ "and", .AND },
+        .{ "class", .CLASS },
+        .{ "else", .ELSE },
+        .{ "false", .FALSE },
+        .{ "for", .FOR },
+        .{ "fun", .FUN },
+        .{ "if", .IF },
+        .{ "nil", .NIL },
+        .{ "or", .OR },
+        .{ "print", .PRINT },
+        .{ "return", .RETURN },
+        .{ "super", .SUPER },
+        .{ "this", .THIS },
+        .{ "true", .TRUE },
+        .{ "var", .VAR },
+        .{ "while", .WHILE },
+    });
 
     /// Caller must call deinit.
-    pub fn init(allocator: std.mem.Allocator) !Lexxer {
+    pub fn init(allocator: std.mem.Allocator, source_code: []const u8) !Lexxer {
         const tokens = std.ArrayList(Token).init(allocator);
-
-        var keywords = std.StringArrayHashMap(Type).init(allocator);
-        try keywords.put("and", Type.AND);
-        try keywords.put("class", Type.CLASS);
-        try keywords.put("else", Type.ELSE);
-        try keywords.put("false", Type.FALSE);
-        try keywords.put("for", Type.FOR);
-        try keywords.put("fun", Type.FUN);
-        try keywords.put("if", Type.IF);
-        try keywords.put("nil", Type.NIL);
-        try keywords.put("or", Type.OR);
-        try keywords.put("print", Type.PRINT);
-        try keywords.put("return", Type.RETURN);
-        try keywords.put("super", Type.SUPER);
-        try keywords.put("this", Type.THIS);
-        try keywords.put("true", Type.TRUE);
-        try keywords.put("var", Type.VAR);
-        try keywords.put("while", Type.WHILE);
-
-        return Lexxer{
-            .source_code = undefined,
-            .tokens = tokens,
-            .keywords = keywords,
-            .start = 0,
-            .current = 0,
-            .line = 1,
-        };
+        return Lexxer{ .source_code = source_code, .tokens = tokens };
     }
 
     pub fn deinit(self: *Lexxer) void {
         self.tokens.deinit();
-        self.keywords.deinit();
     }
 
     fn advance(self: *Lexxer) u8 {
@@ -143,7 +134,7 @@ pub const Lexxer = struct {
         while (isAlphanumeric(self.peek()) or self.peek() == '_') _ = self.advance();
 
         const text = self.source_code[self.start..self.current];
-        const _type = self.keywords.get(text) orelse Type.IDENTIFIER;
+        const _type = keywords.get(text) orelse Type.IDENTIFIER;
         switch (_type) {
             Type.TRUE => try self.addToken(_type, _tokens.Literal{ .boolean = true }),
             Type.FALSE => try self.addToken(_type, _tokens.Literal{ .boolean = false }),
@@ -215,8 +206,7 @@ pub const Lexxer = struct {
         return self.current >= self.source_code.len;
     }
 
-    pub fn scanTokens(self: *Lexxer, source_code: []const u8) !std.ArrayList(Token) {
-        self.source_code = source_code;
+    pub fn scanTokens(self: *Lexxer) ![]const Token {
         while (!self.isAtEnd()) {
             // We are at the beginning of the next lexeme.
             self.start = self.current;
@@ -229,6 +219,6 @@ pub const Lexxer = struct {
             .literal = null,
             .line = self.line,
         });
-        return self.tokens;
+        return self.tokens.items;
     }
 };

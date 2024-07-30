@@ -29,24 +29,7 @@ pub const stderr = std.io.getStdErr().writer();
 
 const max = std.math.maxInt(u64);
 
-pub const Errors = error{
-    DiskQuota,
-    FileTooBig,
-    InputOutput,
-    NoSpaceLeft,
-    DeviceBusy,
-    InvalidArgument,
-    AccessDenied,
-    BrokenPipe,
-    SystemResources,
-    OperationAborted,
-    NotOpenForWriting,
-    LockViolation,
-    WouldBlock,
-    ConnectionResetByPeer,
-    OutOfMemory,
-    Unexpected,
-};
+pub const Errors = std.fs.File.WriteError || std.mem.Allocator.Error;
 
 pub fn _error(info: union(enum) { token: Token, line: u64 }, message: []const u8) !void {
     switch (info) {
@@ -70,13 +53,13 @@ fn report(line: u64, where: []const u8, message: []const u8) !void {
     );
 }
 
-fn run(allocator: std.mem.Allocator, source_code: []u8, interpreter: *Interpreter) !void {
-    var lexxer = try Lexxer.init(allocator);
+fn run(allocator: std.mem.Allocator, source_code: []u8, interpreter: *Interpreter(std.fs.File.Writer)) !void {
+    var lexxer = try Lexxer.init(allocator, source_code);
     defer lexxer.deinit();
-    const tokens = lexxer.scanTokens(source_code) catch return;
-    var parser = try Parser.init();
+    const tokens = lexxer.scanTokens() catch return;
+    var parser = try Parser.init(tokens);
     defer parser.deinit();
-    const statements = parser.parse(tokens) catch return;
+    const statements = parser.parse() catch return;
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
     interpreter.interpret(statements) catch return;
@@ -97,14 +80,14 @@ fn runFile(allocator: std.mem.Allocator, path: []u8) !void {
     };
     defer allocator.free(source_code);
 
-    var interpreter = try Interpreter.init(allocator, .{ .file = stdout });
+    var interpreter = try Interpreter(std.fs.File.Writer).init(allocator, stdout);
     defer interpreter.deinit();
 
     try run(allocator, source_code, &interpreter);
 }
 
 fn runPrompt(allocator: std.mem.Allocator) !void {
-    var interpreter = try Interpreter.init(allocator, .{ .file = stdout });
+    var interpreter = try Interpreter(std.fs.File.Writer).init(allocator, stdout);
     defer interpreter.deinit();
     while (b: {
         try stdout.print("> ", .{});

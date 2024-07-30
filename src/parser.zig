@@ -23,25 +23,18 @@ const Token = _tokens.Token;
 const Type = _tokens.TokenType;
 
 pub const Parser = struct {
-    arena: std.heap.ArenaAllocator,
-    tokens: std.ArrayList(Token),
-    current: u64,
+    arena: std.heap.ArenaAllocator =
+        std.heap.ArenaAllocator.init(std.heap.page_allocator),
+    tokens: []const Token,
+    current: u64 = 0,
 
-    const Error = error{
-        ParseError,
-    };
+    const Error = error{ParseError};
 
     const Errors = Error || main.Errors;
 
     /// Caller must call deinit.
-    pub fn init() !Parser {
-        return Parser{
-            .arena = std.heap.ArenaAllocator.init(
-                std.heap.page_allocator,
-            ),
-            .tokens = undefined,
-            .current = 0,
-        };
+    pub fn init(tokens: []const Token) !Parser {
+        return Parser{ .tokens = tokens };
     }
 
     pub fn deinit(self: *Parser) void {
@@ -49,11 +42,11 @@ pub const Parser = struct {
     }
 
     fn peek(self: *Parser) Token {
-        return self.tokens.items[self.current];
+        return self.tokens[self.current];
     }
 
     fn previous(self: *Parser) Token {
-        return self.tokens.items[self.current - 1];
+        return self.tokens[self.current - 1];
     }
 
     fn isAtEnd(self: *Parser) bool {
@@ -92,12 +85,11 @@ pub const Parser = struct {
         return error.ParseError;
     }
 
-    pub fn parse(self: *Parser, tokens: std.ArrayList(Token)) !std.ArrayList(*ast.Stmt) {
-        self.tokens = tokens;
+    pub fn parse(self: *Parser) ![]const *ast.Stmt {
         var statements = std.ArrayList(*ast.Stmt)
             .init(self.arena.allocator());
         while (!self.isAtEnd()) try statements.append(try self.declaration());
-        return statements;
+        return statements.toOwnedSlice();
     }
 
     fn declaration(self: *Parser) !*ast.Stmt {

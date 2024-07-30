@@ -31,20 +31,21 @@ fn test_program(source: []const u8, expected_output: []const u8) !bool {
 
     const writer = output.writer();
 
-    var lexxer = try Lexxer.init(test_allocator);
+    var lexxer = try Lexxer.init(test_allocator, source);
     defer lexxer.deinit();
 
-    var parser = try Parser.init();
+    const tokens = try lexxer.scanTokens();
+
+    var parser = try Parser.init(tokens);
     defer parser.deinit();
 
-    var interpreter = try Interpreter.init(
+    var interpreter = try Interpreter(std.ArrayList(u8).Writer).init(
         test_allocator,
-        .{ .arraylist = writer },
+        writer,
     );
     defer interpreter.deinit();
 
-    const tokens = try lexxer.scanTokens(source);
-    const statements = try parser.parse(tokens);
+    const statements = try parser.parse();
     try interpreter.interpret(statements);
 
     return std.mem.eql(u8, output.items, expected_output);
