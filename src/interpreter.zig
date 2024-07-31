@@ -212,8 +212,7 @@ pub fn Interpreter(Writer: type) type {
                 },
             );
 
-            const environment = try allocator.create(Env);
-            environment.* = Env.init(allocator, global);
+            const environment = global;
 
             return .{
                 .arena = std.heap.ArenaAllocator.init(
@@ -229,8 +228,6 @@ pub fn Interpreter(Writer: type) type {
         pub fn deinit(self: *Self) void {
             self.global.deinit();
             self.manual_allocator.destroy(self.global);
-            self.environment.deinit();
-            self.manual_allocator.destroy(self.environment);
             self.arena.deinit();
         }
 
