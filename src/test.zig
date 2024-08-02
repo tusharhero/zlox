@@ -57,7 +57,7 @@ fn run_test(code: []const u8, expected_output: []const u8) !void {
     const ok = std.mem.eql(u8, output, expected_output);
     if (!ok) {
         std.debug.print(
-            "expected:\n{s}\ngot:\n{s}",
+            "\nexpected:\n{s}\ngot:\n{s}",
             .{ expected_output, output },
         );
         return error.TestUnexpectedResult;
