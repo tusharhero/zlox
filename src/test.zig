@@ -284,3 +284,24 @@ test "closures" {
         \\
     );
 }
+
+test "lexical scope" {
+    try run_test(
+        \\var a = "global";
+        \\{
+        \\    fun whatIsA() {
+        \\        print a;
+        \\    }
+        \\    whatIsA();
+        \\    var a = "local";
+        \\    whatIsA();
+        \\    a = "2nd local";
+        \\    whatIsA();
+        \\}
+    ,
+        \\global
+        \\global
+        \\2nd local
+        \\
+    );
+}
