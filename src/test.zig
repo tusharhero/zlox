@@ -23,7 +23,7 @@ const Parser = @import("parser.zig").Parser;
 const Printer = @import("ast.zig").Printer;
 const Interpreter = @import("interpreter.zig").Interpreter;
 
-fn test_program(source: []const u8, expected_output: []const u8) !bool {
+fn test_program(source: []const u8) ![]const u8 {
     const test_allocator = std.testing.allocator;
 
     var output = std.ArrayList(u8).init(test_allocator);
@@ -48,47 +48,54 @@ fn test_program(source: []const u8, expected_output: []const u8) !bool {
     const statements = try parser.parse();
     try interpreter.interpret(statements);
 
-    return std.mem.eql(u8, output.items, expected_output);
+    return output.toOwnedSlice();
+}
+
+fn run_test(code: []const u8, expected_output: []const u8) !void {
+    const output = try test_program(code);
+    defer std.testing.allocator.free(output);
+    const ok = std.mem.eql(u8, output, expected_output);
+    if (!ok) {
+        std.debug.print(
+            "expected:\n{s}\ngot:\n{s}",
+            .{ expected_output, output },
+        );
+        return error.TestUnexpectedResult;
+    }
 }
 
 test "printing" {
-    const code =
+    try run_test(
         \\print 2;
-    ;
-    const expected_ouput =
+    ,
         \\2
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "var, printing" {
-    const code =
+    try run_test(
         \\var a = 1+1;
         \\print a;
-    ;
-    const expected_ouput =
+    ,
         \\2
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "string concatenation" {
-    const code =
+    try run_test(
         \\var zig = "Ziggy";
         \\var lox = "Loxxy";
         \\print zig + lox;
-    ;
-    const expected_ouput =
+    ,
         \\ZiggyLoxxy
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "scope" {
-    const code =
+    try run_test(
         \\var a = "global a";
         \\var b = "global b";
         \\var c = "global c";
@@ -108,8 +115,7 @@ test "scope" {
         \\print a;
         \\print b;
         \\print c;
-    ;
-    const expected_ouput =
+    ,
         \\inner a
         \\outer b
         \\global c
@@ -120,12 +126,11 @@ test "scope" {
         \\global b
         \\global c
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "if else" {
-    const code =
+    try run_test(
         \\var a = 1;
         \\var b = 26;
         \\print "Value of a is";
@@ -136,27 +141,24 @@ test "if else" {
         \\   print "a is larger than b";
         \\else
         \\   print "a is smaller than b";
-    ;
-    const expected_ouput =
+    ,
         \\Value of a is
         \\1
         \\Value of b is
         \\26
         \\a is smaller than b
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "while loop" {
-    const code =
+    try run_test(
         \\var a = 0;
         \\while (a < 10) {
         \\ print a;
         \\ a = a + 1;
         \\}
-    ;
-    const expected_ouput =
+    ,
         \\0
         \\1
         \\2
@@ -168,17 +170,15 @@ test "while loop" {
         \\8
         \\9
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "for loop" {
-    const code =
+    try run_test(
         \\for(var i = 0; i < 10; i = i + 1) {
         \\   print i;
         \\}
-    ;
-    const expected_ouput =
+    ,
         \\0
         \\1
         \\2
@@ -190,73 +190,64 @@ test "for loop" {
         \\8
         \\9
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "and, or" {
-    const code =
+    try run_test(
         \\print 1 and 1;
         \\print true and false;
         \\print false or true;
-    ;
-    const expected_ouput =
+    ,
         \\1
         \\false
         \\true
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "functions no return" {
-    const code =
+    try run_test(
         \\fun hello() {
         \\  print "Hello World!";
         \\}
         \\hello();
         \\
-    ;
-    const expected_ouput =
+    ,
         \\Hello World!
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "functions return" {
-    const code =
+    try run_test(
         \\fun hello() {
         \\  return "Hello World!";
         \\}
         \\print hello();
         \\
-    ;
-    const expected_ouput =
+    ,
         \\Hello World!
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "simple recursion" {
-    const code =
+    try run_test(
         \\fun add(a,b,c) {
         \\  if (c == 0) return a + b;
         \\  return add(a,b,0) + c;
         \\}
         \\print add(1,2,3);
         \\
-    ;
-    const expected_ouput =
+    ,
         \\6
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 
 test "fibonacci recursion" {
-    const code =
+    try run_test(
         \\fun fibonacci(n){
         \\   if (n <= 0){
         \\       return 1;
@@ -265,19 +256,17 @@ test "fibonacci recursion" {
         \\   }
         \\}
         \\for (var i = 0; i < 5; i = i + 1) print fibonacci(i);
-    ;
-    const expected_ouput =
+    ,
         \\1
         \\2
         \\3
         \\5
         \\8
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
 test "closures" {
-    const code =
+    try run_test(
         \\fun makeCounter() {
         \\  var i = 0;
         \\  fun count() {
@@ -289,11 +278,9 @@ test "closures" {
         \\var counter = makeCounter();
         \\counter();
         \\counter();
-    ;
-    const expected_ouput =
+    ,
         \\1
         \\2
         \\
-    ;
-    try std.testing.expect(try test_program(code, expected_ouput));
+    );
 }
