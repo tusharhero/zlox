@@ -38,6 +38,9 @@ pub fn Interpreter(Writer: type) type {
         environment: *Env,
         global: *Env,
         writer: Writer,
+        locals: ExprIntHashMap,
+
+        const ExprIntHashMap = std.AutoArrayHashMap(*const ast.Expr, u64);
 
         const Self = @This();
 
@@ -222,6 +225,7 @@ pub fn Interpreter(Writer: type) type {
                 .environment = environment,
                 .global = global,
                 .writer = writer,
+                .locals = ExprIntHashMap.init(allocator),
             };
         }
 
@@ -501,6 +505,11 @@ pub fn Interpreter(Writer: type) type {
                 ._return => |_return| return try self.returnStatement(_return),
             };
             return null;
+        }
+
+        pub fn resolve(self: *Self, expression: *const ast.Expr, depth: u64) !void {
+            try self.locals.put(expression, depth);
+            std.debug.print("{d}", .{depth});
         }
 
         pub fn interpret(self: *Self, statements: []const *ast.Stmt) !void {

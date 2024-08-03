@@ -22,6 +22,7 @@ const Type = @import("tokens.zig").TokenType;
 const Parser = @import("parser.zig").Parser;
 const Printer = @import("ast.zig").Printer;
 const Interpreter = @import("interpreter.zig").Interpreter;
+const Resolver = @import("resolver.zig").Resolver;
 
 pub const stdout = std.io.getStdOut().writer();
 pub const stdin = std.io.getStdIn().reader();
@@ -62,6 +63,9 @@ fn run(allocator: std.mem.Allocator, source_code: []u8, interpreter: *Interprete
     const statements = parser.parse() catch return;
     var printer = try Printer.init(Printer.Notation.parenthesized_prefix);
     defer printer.deinit();
+    var resolver = Resolver(std.fs.File.Writer).init(allocator, interpreter);
+    defer resolver.deinit();
+    try resolver.resolve(statements);
     interpreter.interpret(statements) catch return;
 }
 

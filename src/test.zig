@@ -22,6 +22,7 @@ const Type = @import("tokens.zig").TokenType;
 const Parser = @import("parser.zig").Parser;
 const Printer = @import("ast.zig").Printer;
 const Interpreter = @import("interpreter.zig").Interpreter;
+const Resolver = @import("resolver.zig").Resolver;
 
 fn test_program(source: []const u8) ![]const u8 {
     const test_allocator = std.testing.allocator;
@@ -45,7 +46,11 @@ fn test_program(source: []const u8) ![]const u8 {
     );
     defer interpreter.deinit();
 
+    var resolver = Resolver(std.ArrayList(u8).Writer).init(test_allocator, &interpreter);
+    defer resolver.deinit();
+
     const statements = try parser.parse();
+    try resolver.resolve(statements);
     try interpreter.interpret(statements);
 
     return output.toOwnedSlice();
