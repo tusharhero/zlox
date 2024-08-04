@@ -109,8 +109,9 @@ pub fn Resolver(Writer: type) type {
                 .print => |print| try self.resolve(print),
                 ._if => {},
                 .function => |function| {
-                    try self.beginScope();
                     try self.declare(function.name);
+                    try self.define(function.name);
+                    try self.beginScope();
                     if (function.parameters) |parameters|
                         for (parameters.items) |parameter| {
                             try self.declare(parameter);
