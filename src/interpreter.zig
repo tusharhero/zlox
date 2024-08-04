@@ -78,14 +78,27 @@ pub fn Interpreter(Writer: type) type {
                 const name_dupe = try self.arena.allocator().dupe(u8, name);
                 try self.values.put(name_dupe, value);
             }
+
+            fn ancestor(self: *Env, distance: u64) *Env {
+                var env = self;
+                var i: u64 = 0;
+                while (i < distance) : (i += 1) {
+                    if (env.enclosing_environment) |enclosing_environment|
+                        env = enclosing_environment
+                    else
+                        break;
+                }
+                return env;
+            }
+
             pub fn assign(self: *Env, name: Token, value: Object) !void {
                 if (self.values.contains(name.lexeme)) {
                     // Duplicate the name because its string maybe freed.
                     const name_dupe = try self.arena.allocator().dupe(u8, name.lexeme);
                     try self.values.put(name_dupe, value);
                 } else {
-                    if (self.enclosing_environment != null) {
-                        try self.enclosing_environment.?.assign(name, value);
+                    if (self.enclosing_environment) |enclosing_environment| {
+                        try enclosing_environment.assign(name, value);
                     } else {
                         try _error(name, "Undefined variable.");
                         return;
@@ -93,15 +106,23 @@ pub fn Interpreter(Writer: type) type {
                 }
             }
 
+            pub fn assignAt(self: *Env, distance: u64, name: Token, value: Object) !void {
+                try self.ancestor(distance).assign(name, value);
+            }
+
             pub fn get(self: *Env, name: Token) !Object {
                 if (self.values.contains(name.lexeme))
                     return self.values.get(name.lexeme).?;
-                if (self.enclosing_environment != null) {
-                    return self.enclosing_environment.?.get(name);
+                if (self.enclosing_environment) |enclosing_environment| {
+                    return enclosing_environment.get(name);
                 }
                 try _error(name, "Undefined variable.");
 
                 return Error.RuntimeError;
+            }
+
+            pub fn getAt(self: *Env, distance: u64, name: Token) !Object {
+                return try self.ancestor(distance).get(name);
             }
 
             pub fn debugPrint(self: *Env) !void {
@@ -343,9 +364,12 @@ pub fn Interpreter(Writer: type) type {
             return Error.RuntimeError;
         }
 
-        fn evalAssignment(self: *Self, expression: ast.Assignment) !Object {
-            const value = try self.evaluate(expression.value);
-            try self.environment.assign(expression.name, value);
+        fn evalAssignment(self: *Self, expression: *const ast.Expr) !Object {
+            const value = try self.evaluate(expression.assignment.value);
+            if (self.locals.get(expression)) |distance|
+                try self.environment.assignAt(distance, expression.assignment.name, value)
+            else
+                try self.global.assign(expression.assignment.name, value);
             return value;
         }
 
@@ -388,6 +412,14 @@ pub fn Interpreter(Writer: type) type {
             return try function.callable.call(data, self, arguments);
         }
 
+        fn lookUpVariable(self: *Self, name: Token, expression: ast.Expr) !void {
+            if (self.locals.get(expression)) |distance| {
+                _ = distance;
+                return self.environment.get(name);
+            }
+            self.global.get(name);
+        }
+
         fn evaluate(self: *Self, expression: *const ast.Expr) Errors!Object {
             return switch (expression.*) {
                 .literal => |literal| {
@@ -401,8 +433,19 @@ pub fn Interpreter(Writer: type) type {
                 .grouping => |grouping| self.evaluate(grouping.expression),
                 .unary => |unary| self.evalUnary(unary),
                 .binary => |binary| self.evalBinary(binary),
-                .variable => |variable| self.environment.get(variable.name),
-                .assignment => |assignment| self.evalAssignment(assignment),
+                .variable => |variable| {
+                    if (self.locals.get(expression)) |distance| {
+                        return try self.environment.getAt(distance, variable.name);
+                    } else return self.global.get(variable.name);
+                },
+                .assignment => |assignment| {
+                    const value = try self.evaluate(assignment.value);
+                    if (self.locals.get(expression)) |distance|
+                        try self.environment.assignAt(distance, assignment.name, value)
+                    else
+                        try self.global.assign(assignment.name, value);
+                    return value;
+                },
                 .logical => |logical| self.evalLogical(logical),
                 .call => |call| self.evalCall(call),
             };
