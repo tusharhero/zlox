@@ -107,7 +107,12 @@ pub fn Resolver(Writer: type) type {
                 },
                 .expression => |expression| try self.resolve(expression),
                 .print => |print| try self.resolve(print),
-                ._if => {},
+                ._if => |_if| {
+                    try self.resolve(_if.condition);
+                    try self.resolve(_if.thenBranch);
+                    if (_if.elseBranch) |elseBranch|
+                        try self.resolve(elseBranch);
+                },
                 .function => |function| {
                     try self.declare(function.name);
                     try self.define(function.name);
@@ -121,13 +126,17 @@ pub fn Resolver(Writer: type) type {
                         try self.resolve(&_statement);
                     self.endScope();
                 },
-                ._return => {},
-                ._while => {},
+                ._return => |_return| if (_return.value) |value|
+                    try self.resolve(value),
+                ._while => |_while| {
+                    try self.resolve(_while.condition);
+                    try self.resolve(_while.body);
+                },
             }
         }
 
         fn resolveExpression(self: *Self, expression: *const ast.Expr) !void {
-            switch (expression.*) {
+            try switch (expression.*) {
                 .variable => |variable| {
                     if (self.scopes.getLastOrNull()) |scope|
                         if (scope.get(variable.name.lexeme)) |defined|
@@ -138,8 +147,21 @@ pub fn Resolver(Writer: type) type {
                                 );
                     try self.resolveLocal(expression, variable.name);
                 },
-                else => {},
-            }
+                .unary => |unary| self.resolve(unary.right),
+                .binary, .logical => |binary| {
+                    try self.resolve(binary.left);
+                    try self.resolve(binary.right);
+                },
+                .literal => {},
+                .assignment => |assignment| try self.resolve(assignment.value),
+                .call => |call| {
+                    try self.resolve(call.callee);
+                    if (call.arguments) |arguments|
+                        for (arguments.items) |argument|
+                            try self.resolve(&argument);
+                },
+                .grouping => |grouping| try self.resolve(grouping.expression),
+            };
         }
     };
 }
