@@ -50,6 +50,7 @@ pub fn Resolver(Writer: type) type {
         fn beginScope(self: *Self) !void {
             const allocator = self.arena.allocator();
             const scope = try allocator.create(Scope);
+            scope.* = Scope.init(allocator);
             try self.scopes.append(scope);
         }
 
@@ -79,7 +80,8 @@ pub fn Resolver(Writer: type) type {
 
         fn resolveLocal(self: *Self, expression: *const ast.Expr, name: Token) !void {
             const size = self.scopes.items.len;
-            var i = size;
+            if (size == 0) return;
+            var i = size - 1;
             while (i > 0) : (i -= 1) {
                 if (self.scopes.items[i].contains(name.lexeme)) {
                     try self.interpreter.resolve(expression, size - 1 - i);

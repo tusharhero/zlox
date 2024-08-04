@@ -231,6 +231,7 @@ pub fn Interpreter(Writer: type) type {
 
         pub fn deinit(self: *Self) void {
             self.global.deinit();
+            self.locals.deinit();
             self.manual_allocator.destroy(self.global);
             self.arena.deinit();
         }
