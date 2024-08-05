@@ -40,7 +40,106 @@ pub fn Interpreter(Writer: type) type {
         writer: Writer,
         locals: ExprIntHashMap,
 
-        const ExprIntHashMap = std.AutoArrayHashMap(*const ast.Expr, u64);
+        const ExprIntHashMap = std.HashMap(
+            *const ast.Expr,
+            u64,
+            struct {
+                const Context = @This();
+                pub fn hash(context: Context, expression: *const ast.Expr) u64 {
+                    var h = std.hash.Wyhash.init(0);
+                    h.update(std.mem.asBytes(&@intFromEnum(expression.*)));
+                    switch (expression.*) {
+                        .unary => |unary| {
+                            h.update(std.mem.asBytes(&@intFromEnum(unary.operator._type)));
+                            h.update(std.mem.asBytes(&hash(context, unary.right)));
+                        },
+                        .binary, .logical => |binary| {
+                            h.update(std.mem.asBytes(&@intFromEnum(binary.operator._type)));
+                            h.update(std.mem.asBytes(&hash(context, binary.left)));
+                            h.update(std.mem.asBytes(&hash(context, binary.right)));
+                        },
+                        .grouping => |grouping| {
+                            h.update(std.mem.asBytes(&hash(context, grouping.expression)));
+                        },
+                        .literal => |literal| {
+                            if (literal.value) |lit| {
+                                h.update(std.mem.asBytes(&@intFromEnum(lit)));
+                                switch (lit) {
+                                    .string => |str| h.update(str),
+                                    .boolean => |boolean| h.update(std.mem.asBytes(&@intFromBool(boolean))),
+                                    .number => |num| h.update(std.mem.asBytes(&num)),
+                                }
+                            }
+                        },
+                        .variable => |variable| {
+                            h.update(std.mem.asBytes(&variable.name.line));
+                            h.update(variable.name.lexeme);
+                        },
+                        .assignment => |assignment| {
+                            h.update(std.mem.asBytes(&assignment.name.lexeme));
+                            h.update(std.mem.asBytes(&hash(context, assignment.value)));
+                        },
+                        .call => |call| {
+                            h.update(std.mem.asBytes(&@intFromEnum(call.paren._type)));
+                            h.update(std.mem.asBytes(&hash(context, call.callee)));
+                            if (call.arguments) |arguments|
+                                for (arguments.items) |argument|
+                                    h.update(std.mem.asBytes(&hash(context, &argument)));
+                        },
+                    }
+                    return h.final();
+                }
+                pub fn eql(context: Context, a: *const ast.Expr, b: *const ast.Expr) bool {
+                    if (@intFromEnum(a.*) != @intFromEnum(b.*)) return false;
+                    switch (a.*) {
+                        .binary => {
+                            if (a.binary.operator._type != a.binary.operator._type) return false;
+                            if (!eql(context, a.binary.left, b.binary.left)) return false;
+                            if (!eql(context, a.binary.right, b.binary.right)) return false;
+                        },
+                        .logical => {
+                            if (a.logical.operator._type != a.logical.operator._type) return false;
+                            if (!eql(context, a.logical.left, b.logical.left)) return false;
+                            if (!eql(context, a.logical.right, b.logical.right)) return false;
+                        },
+                        .grouping => {
+                            if (!eql(context, a.grouping.expression, b.grouping.expression)) return false;
+                        },
+                        .literal => {
+                            if (a.literal.value != null and b.literal.value != null) {
+                                if (@intFromEnum(a.literal.value.?) != @intFromEnum(b.literal.value.?)) return false;
+                                switch (a.literal.value.?) {
+                                    .number => if (a.literal.value.?.number != b.literal.value.?.number) return false,
+                                    .boolean => if (a.literal.value.?.boolean != b.literal.value.?.boolean) return false,
+                                    .string => if (!std.mem.eql(u8, a.literal.value.?.string, b.literal.value.?.string))
+                                        return false,
+                                }
+                            }
+                        },
+                        .unary => {
+                            if (a.unary.operator._type != a.unary.operator._type) return false;
+                            if (!eql(context, a.unary.right, b.unary.right)) return false;
+                        },
+                        .variable => if (!std.mem.eql(u8, a.variable.name.lexeme, b.variable.name.lexeme)) return false,
+                        .assignment => {
+                            if (!std.mem.eql(u8, a.assignment.name.lexeme, b.assignment.name.lexeme)) return false;
+                            if (!eql(context, a.assignment.value, b.assignment.value)) return false;
+                        },
+                        .call => {
+                            if (!eql(context, a.call.callee, b.call.callee)) return false;
+                            if (a.call.paren.line != a.call.paren.line) return false;
+                            if (a.call.arguments != null and b.call.arguments != null) {
+                                for (a.call.arguments.?.items, b.call.arguments.?.items) |argumentA, argumentB| {
+                                    if (!eql(context, &argumentA, &argumentB)) return false;
+                                }
+                            }
+                        },
+                    }
+                    return true;
+                }
+            },
+            std.hash_map.default_max_load_percentage,
+        );
 
         const Self = @This();
 
