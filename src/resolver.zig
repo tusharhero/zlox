@@ -81,10 +81,9 @@ pub fn Resolver(Writer: type) type {
         fn resolveLocal(self: *Self, expression: *const ast.Expr, name: Token) !void {
             const size = self.scopes.items.len;
             if (size == 0) return;
-            var i = size - 1;
-            while (i > 0) : (i -= 1) {
-                if (self.scopes.items[i].contains(name.lexeme)) {
-                    try self.interpreter.resolve(expression, size - 1 - i);
+            for (0..size) |i| {
+                if (self.scopes.items[size - 1 - i].contains(name.lexeme)) {
+                    try self.interpreter.resolve(expression, i);
                     break;
                 }
             }

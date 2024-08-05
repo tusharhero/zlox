@@ -652,7 +652,6 @@ pub fn Interpreter(Writer: type) type {
 
         pub fn resolve(self: *Self, expression: *const ast.Expr, depth: u64) !void {
             try self.locals.put(expression, depth);
-            std.debug.print("{d}", .{depth});
         }
 
         pub fn interpret(self: *Self, statements: []const *ast.Stmt) !void {
