@@ -310,3 +310,16 @@ test "lexical scope" {
         \\
     );
 }
+
+test "nested function returns" {
+    try run_test(
+        \\fun hello() {
+        \\  fun hello2(){
+        \\    return 1;
+        \\  }
+        \\  return 0;
+        \\}
+    ,
+        \\
+    );
+}
