@@ -298,14 +298,14 @@ test "lexical scope" {
         \\        print a;
         \\    }
         \\    whatIsA();
-        \\    var a = "local";
-        \\    whatIsA();
         \\    a = "2nd local";
+        \\    whatIsA();
+        \\    var a = "local";
         \\    whatIsA();
         \\}
     ,
         \\global
-        \\global
+        \\2nd local
         \\2nd local
         \\
     );
