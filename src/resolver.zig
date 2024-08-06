@@ -28,9 +28,11 @@ pub fn Resolver(Writer: type) type {
         arena: std.heap.ArenaAllocator,
         interpreter: *Interpreter(Writer),
         scopes: Scopes,
+        current_function: FunctionType,
 
         const Scopes = std.ArrayList(*Scope);
         const Scope = std.StringHashMap(bool);
+        const FunctionType = enum { NONE, FUNCTION };
         const Self = @This();
 
         /// Caller must call deinit.
@@ -39,6 +41,7 @@ pub fn Resolver(Writer: type) type {
                 .arena = std.heap.ArenaAllocator.init(allocator),
                 .interpreter = interpreter,
                 .scopes = Scopes.init(allocator),
+                .current_function = FunctionType.NONE,
             };
         }
 
@@ -115,6 +118,8 @@ pub fn Resolver(Writer: type) type {
                 .function => |function| {
                     try self.declare(function.name);
                     try self.define(function.name);
+                    const enclosing_function = self.current_function;
+                    self.current_function = FunctionType.FUNCTION;
                     try self.beginScope();
                     if (function.parameters) |parameters|
                         for (parameters.items) |parameter| {
@@ -124,9 +129,15 @@ pub fn Resolver(Writer: type) type {
                     for (function.body.items) |_statement|
                         try self.resolve(&_statement);
                     self.endScope();
+                    self.current_function = enclosing_function;
                 },
-                ._return => |_return| if (_return.value) |value|
-                    try self.resolve(value),
+                ._return => |_return| if (self.current_function != FunctionType.NONE) {
+                    if (_return.value) |value|
+                        try self.resolve(value);
+                } else try main._error(
+                    .{ .token = _return.keyword },
+                    "Can't return from top-level code.",
+                ),
                 ._while => |_while| {
                     try self.resolve(_while.condition);
                     try self.resolve(_while.body);
