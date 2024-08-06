@@ -71,10 +71,7 @@ pub fn Interpreter(Writer: type) type {
                                 }
                             }
                         },
-                        .variable => |variable| {
-                            h.update(std.mem.asBytes(&variable.name.line));
-                            h.update(variable.name.lexeme);
-                        },
+                        .variable => |variable| h.update(std.mem.asBytes(&variable)),
                         .assignment => |assignment| {
                             h.update(std.mem.asBytes(&assignment.name.lexeme));
                             h.update(std.mem.asBytes(&hash(context, assignment.value)));
@@ -120,7 +117,21 @@ pub fn Interpreter(Writer: type) type {
                             if (a.unary.operator._type != a.unary.operator._type) return false;
                             if (!eql(context, a.unary.right, b.unary.right)) return false;
                         },
-                        .variable => if (!std.mem.eql(u8, a.variable.name.lexeme, b.variable.name.lexeme)) return false,
+                        .variable => {
+                            if (!std.mem.eql(u8, a.variable.name.lexeme, b.variable.name.lexeme)) return false;
+                            if (a.variable.name.line != b.variable.name.line) return false;
+                            if (a.variable.name.line != b.variable.name.line) return false;
+                            if (a.variable.name.literal != null and b.variable.name.literal != null) {
+                                if (@intFromEnum(a.variable.name.literal.?) != @intFromEnum(b.variable.name.literal.?)) return false;
+                                switch (a.variable.name.literal.?) {
+                                    .number => if (a.variable.name.literal.?.number != b.variable.name.literal.?.number) return false,
+                                    .boolean => if (a.variable.name.literal.?.boolean != b.variable.name.literal.?.boolean) return false,
+                                    .string => if (!std.mem.eql(u8, a.variable.name.literal.?.string, b.variable.name.literal.?.string))
+                                        return false,
+                                }
+                            }
+                            if (!std.mem.eql(u8, std.mem.asBytes(&a.variable), std.mem.asBytes(&b.variable))) return false;
+                        },
                         .assignment => {
                             if (!std.mem.eql(u8, a.assignment.name.lexeme, b.assignment.name.lexeme)) return false;
                             if (!eql(context, a.assignment.value, b.assignment.value)) return false;
