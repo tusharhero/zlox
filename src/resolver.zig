@@ -160,7 +160,7 @@ pub fn Resolver(Writer: type) type {
                     try self.resolve(call.callee);
                     if (call.arguments) |arguments|
                         for (arguments.items) |argument|
-                            try self.resolve(&argument);
+                            try self.resolve(argument);
                 },
                 .grouping => |grouping| try self.resolve(grouping.expression),
             };

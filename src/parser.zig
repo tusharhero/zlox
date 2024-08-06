@@ -475,7 +475,7 @@ pub const Parser = struct {
     fn call(self: *Parser) !*ast.Expr {
         const callee = try self.primary();
         var paren: ?Token = null;
-        var arguments_: ?std.ArrayList(ast.Expr) = null;
+        var arguments_: ?std.ArrayList(*const ast.Expr) = null;
         if (self.match(.{Type.LEFT_PAREN})) {
             paren = self.previous();
             arguments_ = try self.arguments();
@@ -496,19 +496,19 @@ pub const Parser = struct {
         return expr;
     }
 
-    fn arguments(self: *Parser) !?std.ArrayList(ast.Expr) {
+    fn arguments(self: *Parser) !?std.ArrayList(*const ast.Expr) {
         if (self.check(Type.RIGHT_PAREN)) return null;
         const first_expr = try self.expression();
-        var expr_list = std.ArrayList(ast.Expr)
+        var expr_list = std.ArrayList(*const ast.Expr)
             .init(self.arena.allocator());
-        try expr_list.append(first_expr.*);
+        try expr_list.append(first_expr);
         while (self.match(.{Type.COMMA})) {
             if (expr_list.items.len >= 255) try self._error(
                 self.peek(),
                 "Can't have more than 255 arguments.",
             );
             const expr = try self.expression();
-            try expr_list.append(expr.*);
+            try expr_list.append(expr);
         }
         return expr_list;
     }

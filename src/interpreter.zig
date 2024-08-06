@@ -81,7 +81,7 @@ pub fn Interpreter(Writer: type) type {
                             h.update(std.mem.asBytes(&hash(context, call.callee)));
                             if (call.arguments) |arguments|
                                 for (arguments.items) |argument|
-                                    h.update(std.mem.asBytes(&hash(context, &argument)));
+                                    h.update(std.mem.asBytes(&hash(context, argument)));
                         },
                     }
                     return h.final();
@@ -141,7 +141,7 @@ pub fn Interpreter(Writer: type) type {
                             if (a.call.paren.line != a.call.paren.line) return false;
                             if (a.call.arguments != null and b.call.arguments != null) {
                                 for (a.call.arguments.?.items, b.call.arguments.?.items) |argumentA, argumentB| {
-                                    if (!eql(context, &argumentA, &argumentB)) return false;
+                                    if (!eql(context, argumentA, argumentB)) return false;
                                 }
                             }
                         },
@@ -510,7 +510,7 @@ pub fn Interpreter(Writer: type) type {
             if (expression.arguments != null) {
                 arguments = std.ArrayList(Object).init(self.arena.allocator());
                 for (expression.arguments.?.items) |argument| {
-                    try arguments.?.append(try self.evaluate(&argument));
+                    try arguments.?.append(try self.evaluate(argument));
                 }
             }
             const function: Object = callee;
