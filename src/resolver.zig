@@ -152,7 +152,10 @@ pub fn Resolver(Writer: type) type {
                     try self.resolve(binary.right);
                 },
                 .literal => {},
-                .assignment => |assignment| try self.resolve(assignment.value),
+                .assignment => |assignment| {
+                    try self.resolve(assignment.value);
+                    try self.resolveLocal(expression, assignment.name);
+                },
                 .call => |call| {
                     try self.resolve(call.callee);
                     if (call.arguments) |arguments|
