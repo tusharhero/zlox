@@ -31,6 +31,7 @@ pub const Expr = union(enum) {
     logical: Binary,
     call: Call,
     get: Get,
+    set: Set,
 };
 
 pub const Binary = struct {
@@ -63,6 +64,11 @@ pub const Call = struct {
 pub const Get = struct {
     object: *const Expr,
     name: Token,
+};
+pub const Set = struct {
+    object: *const Expr,
+    name: Token,
+    value: *const Expr,
 };
 
 pub const Stmt = union(enum) {
