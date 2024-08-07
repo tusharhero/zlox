@@ -95,6 +95,7 @@ pub const Parser = struct {
     fn declaration(self: *Parser) !*ast.Stmt {
         if (self.match(.{Type.VAR})) return self.varDeclaration();
         if (self.match(.{Type.FUN})) return self.funDeclaration();
+        if (self.match(.{Type.CLASS})) return self.classDeclaration();
         return self.statement();
     }
 
@@ -117,7 +118,7 @@ pub const Parser = struct {
 
     fn funDeclaration(self: *Parser) !*ast.Stmt {
         const name = try self.consume(Type.IDENTIFIER, "Expect function name.");
-        _ = try self.consume(Type.LEFT_PAREN, "Expect function name.");
+        _ = try self.consume(Type.LEFT_PAREN, "Expect '(' after function name.");
         const parameters_ = try self.parameters();
         _ = try self.consume(Type.RIGHT_PAREN, "Expect ')' after parameters.");
         _ = try self.consume(Type.LEFT_BRACE, "Expect '{' before function body.");
@@ -131,6 +132,26 @@ pub const Parser = struct {
             },
         };
         return function;
+    }
+
+    fn classDeclaration(self: *Parser) !*ast.Stmt {
+        const allocator = self.arena.allocator();
+
+        const name = try self.consume(Type.IDENTIFIER, "Expect class name.");
+        _ = try self.consume(Type.LEFT_BRACE, "Expect '{' before class body.");
+
+        var methods = std.ArrayList(*const ast.FunDecl).init(allocator);
+        while (!self.check(Type.RIGHT_BRACE) and !self.isAtEnd())
+            try methods.append(@ptrCast(try self.funDeclaration()));
+        _ = try self.consume(Type.RIGHT_BRACE, "Expect '}' after method declarations.");
+        const class = try self.arena.allocator().create(ast.Stmt);
+        class.* = .{
+            .class = .{
+                .name = name,
+                .methods = methods,
+            },
+        };
+        return class;
     }
 
     fn parameters(self: *Parser) !?std.ArrayList(Token) {
