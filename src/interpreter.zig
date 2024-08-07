@@ -330,8 +330,16 @@ pub fn Interpreter(Writer: type) type {
 
                 return Object.nil;
             }
-            fn toString(_: *anyopaque) ![]const u8 {
-                return "<userdefined fn: >";
+            fn toString(data: *anyopaque) ![]const u8 {
+                const self: *Function = @ptrCast(@alignCast(data));
+                var string_list = std.ArrayList(u8)
+                    .init(self.allocator);
+                try string_list.writer().print(
+                    "<userdefined fn: {s}>",
+                    .{self.declaration.name.lexeme},
+                );
+                const string = string_list.items;
+                return string;
             }
         };
 
