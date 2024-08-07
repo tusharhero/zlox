@@ -251,7 +251,7 @@ pub fn Interpreter(Writer: type) type {
             data: *anyopaque,
             arity: *const fn (data: *anyopaque) u8,
             call: *const fn (data: *anyopaque, interpreter: *Self, arguments: ?std.ArrayList(Object)) Errors!Object,
-            toString: *const fn (data: *anyopaque) []const u8,
+            toString: *const fn (data: *anyopaque) Errors![]const u8,
         };
 
         const Clock = struct {
@@ -277,7 +277,7 @@ pub fn Interpreter(Writer: type) type {
                     .number = @floatFromInt(std.time.timestamp()),
                 };
             }
-            fn toString(_: *anyopaque) []const u8 {
+            fn toString(_: *anyopaque) ![]const u8 {
                 return "<native fn: clock>";
             }
         };
@@ -330,14 +330,51 @@ pub fn Interpreter(Writer: type) type {
 
                 return Object.nil;
             }
-            fn toString(_: *anyopaque) []const u8 {
+            fn toString(_: *anyopaque) ![]const u8 {
                 return "<userdefined fn: >";
             }
         };
 
         const Class = struct {
+            allocator: std.mem.Allocator,
             name: []const u8,
             pub fn init(self: *Class) Callable {
+                return Callable{
+                    .data = self,
+                    .arity = arity,
+                    .call = call,
+                    .toString = toString,
+                };
+            }
+            fn arity(_: *anyopaque) u8 {
+                return 0;
+            }
+            fn call(
+                data: *anyopaque,
+                interpreter: *Self,
+                arguments: ?std.ArrayList(Object),
+            ) Errors!Object {
+                _ = interpreter;
+                _ = arguments;
+                const self: *Class = @ptrCast(@alignCast(data));
+                const instance = try self.allocator.create(Instance);
+                instance.* = Instance{
+                    .allocator = self.allocator,
+                    .class = self,
+                };
+                const callable = instance.init();
+                return .{ .callable = callable };
+            }
+            fn toString(data: *anyopaque) ![]const u8 {
+                const self: *Class = @ptrCast(@alignCast(data));
+                return self.name;
+            }
+        };
+
+        const Instance = struct {
+            allocator: std.mem.Allocator,
+            class: *const Class,
+            pub fn init(self: *Instance) Callable {
                 return Callable{
                     .data = self,
                     .arity = arity,
@@ -358,9 +395,13 @@ pub fn Interpreter(Writer: type) type {
                 _ = arguments;
                 return Object.nil;
             }
-            fn toString(data: *anyopaque) []const u8 {
-                const self: *Class = @ptrCast(@alignCast(data));
-                return self.name;
+            fn toString(data: *anyopaque) ![]const u8 {
+                const self: *Instance = @ptrCast(@alignCast(data));
+                var string_list = std.ArrayList(u8)
+                    .init(self.allocator);
+                try string_list.writer().print("{s} instance", .{self.class.name});
+                const string = string_list.items;
+                return string;
             }
         };
 
@@ -670,12 +711,16 @@ pub fn Interpreter(Writer: type) type {
         }
 
         fn classStatement(self: *Self, statement: ast.ClassDecl) Errors!void {
+            const allocator = self.arena.allocator();
             try self.environment.define(
                 statement.name.lexeme,
                 Object.nil,
             );
-            const class = try self.arena.allocator().create(Class);
-            class.* = Class{ .name = statement.name.lexeme };
+            const class = try allocator.create(Class);
+            class.* = Class{
+                .allocator = allocator,
+                .name = statement.name.lexeme,
+            };
             const callable = class.init();
             try self.environment.assign(
                 statement.name,
