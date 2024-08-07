@@ -370,6 +370,18 @@ pub const Parser = struct {
                     };
                     expr = compound_expr;
                 },
+                .get => |get| {
+                    const compound_expr =
+                        try self.arena.allocator().create(ast.Expr);
+                    compound_expr.* = ast.Expr{
+                        .set = ast.Set{
+                            .object = get.object,
+                            .name = get.name,
+                            .value = value,
+                        },
+                    };
+                    expr = compound_expr;
+                },
                 else => self._error(equals, "Invalid assignment target."),
             };
         }

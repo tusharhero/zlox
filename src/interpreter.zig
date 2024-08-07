@@ -87,6 +87,11 @@ pub fn Interpreter(Writer: type) type {
                             h.update(std.mem.asBytes(&hash(context, get.object)));
                             h.update(std.mem.asBytes(&get.name));
                         },
+                        .set => |set| {
+                            h.update(std.mem.asBytes(&hash(context, set.object)));
+                            h.update(std.mem.asBytes(&hash(context, set.value)));
+                            h.update(std.mem.asBytes(&set.name));
+                        },
                     }
                     return h.final();
                 }
@@ -164,6 +169,22 @@ pub fn Interpreter(Writer: type) type {
                                 }
                             }
                             if (!std.mem.eql(u8, std.mem.asBytes(&a.get), std.mem.asBytes(&b.get))) return false;
+                        },
+                        .set => {
+                            if (!eql(context, a.set.object, b.set.object)) return false;
+                            if (!std.mem.eql(u8, a.set.name.lexeme, b.set.name.lexeme)) return false;
+                            if (a.set.name.line != b.set.name.line) return false;
+                            if (a.set.name.line != b.set.name.line) return false;
+                            if (a.set.name.literal != null and b.set.name.literal != null) {
+                                if (@intFromEnum(a.set.name.literal.?) != @intFromEnum(b.set.name.literal.?)) return false;
+                                switch (a.set.name.literal.?) {
+                                    .number => if (a.set.name.literal.?.number != b.set.name.literal.?.number) return false,
+                                    .boolean => if (a.set.name.literal.?.boolean != b.set.name.literal.?.boolean) return false,
+                                    .string => if (!std.mem.eql(u8, a.set.name.literal.?.string, b.set.name.literal.?.string))
+                                        return false,
+                                }
+                            }
+                            if (!std.mem.eql(u8, std.mem.asBytes(&a.set), std.mem.asBytes(&b.set))) return false;
                         },
                     }
                     return true;
@@ -441,6 +462,10 @@ pub fn Interpreter(Writer: type) type {
                 else
                     try _error(name, "Undefined property.");
             }
+            fn set(data: *anyopaque, name: Token, value: Object) !Object {
+                const self: *Instance = @ptrCast(@alignCast(data));
+                try self.fields.put(name.lexeme, value);
+            }
         };
 
         /// Caller must call deinit.
@@ -674,7 +699,21 @@ pub fn Interpreter(Writer: type) type {
                             instance.get(object.callable.data, get.name);
                         },
                         else => {
-                            try _error(get.name, "Only instances have properties");
+                            try _error(get.name, "Only instances have properties.");
+                            return Error.RuntimeError;
+                        },
+                    }
+                },
+                .set => |set| {
+                    const object = try self.evaluate(set.object);
+                    switch (@TypeOf(object)) {
+                        Instance => {
+                            const value = try self.evaluate(set.value);
+                            var instance: *Instance = @ptrCast(@alignCast(object.callable.data));
+                            instance.set(object.callable.data, set.name, value);
+                        },
+                        else => {
+                            try _error(set.name, "Only instances have fields.");
                             return Error.RuntimeError;
                         },
                     }

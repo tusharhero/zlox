@@ -180,6 +180,10 @@ pub fn Resolver(Writer: type) type {
                 .get => |get| {
                     try self.resolve(get.object);
                 },
+                .set => |set| {
+                    try self.resolve(set.value);
+                    try self.resolve(set.object);
+                },
                 .grouping => |grouping| try self.resolve(grouping.expression),
             };
         }
