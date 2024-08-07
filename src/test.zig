@@ -323,3 +323,17 @@ test "nested function returns" {
         \\
     );
 }
+
+test "class parsing" {
+    try run_test(
+        \\class DevonshireCream {
+        \\  serveOn() {
+        \\    return 	  "Scones";
+        \\  }
+        \\}
+        \\print DevonshireCream;
+    ,
+        \\DevonshireCream
+        \\
+    );
+}
