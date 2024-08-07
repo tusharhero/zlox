@@ -494,27 +494,42 @@ pub const Parser = struct {
     }
 
     fn call(self: *Parser) !*ast.Expr {
+        const allocator = self.arena.allocator();
+
         const callee = try self.primary();
-        var paren: ?Token = null;
-        var arguments_: ?std.ArrayList(*const ast.Expr) = null;
-        if (self.match(.{Type.LEFT_PAREN})) {
-            paren = self.previous();
-            arguments_ = try self.arguments();
-            _ = try self.consume(
-                Type.RIGHT_PAREN,
-                "Expected ')' after arguments.",
-            );
+
+        while (self.match(.{ Type.LEFT_PAREN, Type.DOT })) {
+            const prev = self.previous();
+            switch (prev._type) {
+                Type.LEFT_PAREN => {
+                    const arguments_ = try self.arguments();
+                    _ = try self.consume(
+                        Type.RIGHT_PAREN,
+                        "Expected ')' after arguments.",
+                    );
+                    const expr = try allocator.create(ast.Expr);
+                    expr.* = ast.Expr{
+                        .call = ast.Call{
+                            .callee = callee,
+                            .paren = prev,
+                            .arguments = arguments_,
+                        },
+                    };
+                    return expr;
+                },
+                Type.DOT => {
+                    const name = try self.consume(Type.IDENTIFIER, "Expect property name after '.'.");
+                    const expr = try allocator.create(ast.Expr);
+                    expr.* = ast.Expr{ .get = ast.Get{
+                        .name = name,
+                        .object = callee,
+                    } };
+                    return expr;
+                },
+                else => @panic("Invalid TokenType"),
+            }
         }
-        if (paren == null) return callee;
-        const expr = try self.arena.allocator().create(ast.Expr);
-        expr.* = ast.Expr{
-            .call = ast.Call{
-                .callee = callee,
-                .arguments = arguments_,
-                .paren = paren.?,
-            },
-        };
-        return expr;
+        return callee;
     }
 
     fn arguments(self: *Parser) !?std.ArrayList(*const ast.Expr) {

@@ -177,6 +177,9 @@ pub fn Resolver(Writer: type) type {
                         for (arguments.items) |argument|
                             try self.resolve(argument);
                 },
+                .get => |get| {
+                    try self.resolve(get.object);
+                },
                 .grouping => |grouping| try self.resolve(grouping.expression),
             };
         }
