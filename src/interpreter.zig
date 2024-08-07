@@ -83,6 +83,10 @@ pub fn Interpreter(Writer: type) type {
                                 for (arguments.items) |argument|
                                     h.update(std.mem.asBytes(&hash(context, argument)));
                         },
+                        .get => |get| {
+                            h.update(std.mem.asBytes(&hash(context, get.object)));
+                            h.update(std.mem.asBytes(&get.name));
+                        },
                     }
                     return h.final();
                 }
@@ -144,6 +148,22 @@ pub fn Interpreter(Writer: type) type {
                                     if (!eql(context, argumentA, argumentB)) return false;
                                 }
                             }
+                        },
+                        .get => {
+                            if (!eql(context, a.get.object, b.get.object)) return false;
+                            if (!std.mem.eql(u8, a.get.name.lexeme, b.get.name.lexeme)) return false;
+                            if (a.get.name.line != b.get.name.line) return false;
+                            if (a.get.name.line != b.get.name.line) return false;
+                            if (a.get.name.literal != null and b.get.name.literal != null) {
+                                if (@intFromEnum(a.get.name.literal.?) != @intFromEnum(b.get.name.literal.?)) return false;
+                                switch (a.get.name.literal.?) {
+                                    .number => if (a.get.name.literal.?.number != b.get.name.literal.?.number) return false,
+                                    .boolean => if (a.get.name.literal.?.boolean != b.get.name.literal.?.boolean) return false,
+                                    .string => if (!std.mem.eql(u8, a.get.name.literal.?.string, b.get.name.literal.?.string))
+                                        return false,
+                                }
+                            }
+                            if (!std.mem.eql(u8, std.mem.asBytes(&a.get), std.mem.asBytes(&b.get))) return false;
                         },
                     }
                     return true;
@@ -369,6 +389,7 @@ pub fn Interpreter(Writer: type) type {
                 instance.* = Instance{
                     .allocator = self.allocator,
                     .class = self,
+                    .fields = std.StringHashMap(Object).init(self.allocator),
                 };
                 const callable = instance.init();
                 return .{ .callable = callable };
@@ -382,6 +403,8 @@ pub fn Interpreter(Writer: type) type {
         const Instance = struct {
             allocator: std.mem.Allocator,
             class: *const Class,
+            fields: std.StringHashMap(Object),
+
             pub fn init(self: *Instance) Callable {
                 return Callable{
                     .data = self,
@@ -410,6 +433,13 @@ pub fn Interpreter(Writer: type) type {
                 try string_list.writer().print("{s} instance", .{self.class.name});
                 const string = string_list.items;
                 return string;
+            }
+            fn get(data: *anyopaque, name: Token) !Object {
+                const self: *Instance = @ptrCast(@alignCast(data));
+                if (self.fields.contains(name.lexeme))
+                    return self.fields.get(name.lexeme)
+                else
+                    try _error(name, "Undefined property.");
             }
         };
 
@@ -636,6 +666,19 @@ pub fn Interpreter(Writer: type) type {
                 },
                 .logical => |logical| self.evalLogical(logical),
                 .call => |call| self.evalCall(call),
+                .get => |get| {
+                    const object = try self.evaluate(get.object);
+                    switch (@TypeOf(object)) {
+                        Instance => {
+                            var instance: *Instance = @ptrCast(@alignCast(object.callable.data));
+                            instance.get(object.callable.data, get.name);
+                        },
+                        else => {
+                            try _error(get.name, "Only instances have properties");
+                            return Error.RuntimeError;
+                        },
+                    }
+                },
             };
         }
 
