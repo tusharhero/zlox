@@ -337,3 +337,14 @@ test "class parsing" {
         \\
     );
 }
+
+test "class fields" {
+    try run_test(
+        \\class bagel {}
+        \\bagel.name = "bag";
+        \\print bagel.name;
+    ,
+        \\bag
+        \\
+    );
+}
