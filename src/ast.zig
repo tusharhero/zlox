@@ -30,6 +30,7 @@ pub const Expr = union(enum) {
     assignment: Assignment,
     logical: Binary,
     call: Call,
+    get: Get,
 };
 
 pub const Binary = struct {
@@ -58,6 +59,10 @@ pub const Call = struct {
     callee: *const Expr,
     paren: Token,
     arguments: ?std.ArrayList(*const Expr),
+};
+pub const Get = struct {
+    object: *const Expr,
+    name: Token,
 };
 
 pub const Stmt = union(enum) {
