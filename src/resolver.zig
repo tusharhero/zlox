@@ -131,6 +131,10 @@ pub fn Resolver(Writer: type) type {
                     self.endScope();
                     self.current_function = enclosing_function;
                 },
+                .class => |class| {
+                    try self.declare(class.name);
+                    try self.define(class.name);
+                },
                 ._return => |_return| if (self.current_function != FunctionType.NONE) {
                     if (_return.value) |value|
                         try self.resolve(value);
