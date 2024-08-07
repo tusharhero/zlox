@@ -335,6 +335,35 @@ pub fn Interpreter(Writer: type) type {
             }
         };
 
+        const Class = struct {
+            name: []const u8,
+            pub fn init(self: *Class) Callable {
+                return Callable{
+                    .data = self,
+                    .arity = arity,
+                    .call = call,
+                    .toString = toString,
+                };
+            }
+            fn arity(_: *anyopaque) u8 {
+                return 0;
+            }
+            fn call(
+                data: *anyopaque,
+                interpreter: *Self,
+                arguments: ?std.ArrayList(Object),
+            ) Errors!Object {
+                _ = data;
+                _ = interpreter;
+                _ = arguments;
+                return Object.nil;
+            }
+            fn toString(data: *anyopaque) []const u8 {
+                const self: *Class = @ptrCast(@alignCast(data));
+                return self.name;
+            }
+        };
+
         /// Caller must call deinit.
         pub fn init(allocator: std.mem.Allocator, writer: Writer) !Self {
             const global = try allocator.create(Env);
@@ -640,6 +669,20 @@ pub fn Interpreter(Writer: type) type {
             );
         }
 
+        fn classStatement(self: *Self, statement: ast.ClassDecl) Errors!void {
+            try self.environment.define(
+                statement.name.lexeme,
+                Object.nil,
+            );
+            const class = try self.arena.allocator().create(Class);
+            class.* = Class{ .name = statement.name.lexeme };
+            const callable = class.init();
+            try self.environment.assign(
+                statement.name,
+                .{ .callable = callable },
+            );
+        }
+
         fn returnStatement(self: *Self, statement: ast.ReturnStmt) Errors!Object {
             return if (statement.value) |val|
                 try self.evaluate(val)
@@ -656,6 +699,7 @@ pub fn Interpreter(Writer: type) type {
                 ._if => |_if| return try self.ifStatement(_if),
                 ._while => |_while| return try self.whileStatement(_while),
                 .function => |fun| self.funStatement(fun),
+                .class => |class| self.classStatement(class),
                 ._return => |_return| return try self.returnStatement(_return),
             };
             return null;
